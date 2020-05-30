@@ -82,18 +82,33 @@ class Client {
     }
 
     private suspend fun handleMessage(event: MessageCreateEvent) {
-        val command = commands.find { c -> event.message.content.startsWith(".horo${c.name}") }
+        var command = commands.find { c -> event.message.content.startsWith(".horo${c.name}") }
 
         if (command == null) {
-            event.message.restChannel.createMessage(
-                EmbedData.builder()
-                    .title("Unknown command")
-                    .description("Are you sure you typed that right?")
-                    .color(Color.RED.rgb)
-                    .build()
-            ).awaitSingle()
-            return
+            // do fuzzy match here
+            val userInput: String = event.message.content
+            val boundary: Int = if (userInput.indexOf(" ") == -1) userInput.length else userInput.indexOf(" ")
+            val userCmd: String = userInput.substring(".horo".length, boundary)
+
+            command = commands.map { cmd -> Pair(cmd, cmd.name.fuzzyScore(userCmd)) }
+                .filter { pair ->
+                    pair.second > 1
+                }
+                .maxBy { pair -> pair.second }
+                ?.first
+
+            if (command == null) { // if not null, exit this and continue executing the corrected command
+                event.message.restChannel.createMessage(
+                    EmbedData.builder()
+                        .title("Unknown command")
+                        .description("Are you sure you typed that right?")
+                        .color(Color.RED.rgb)
+                        .build()
+                ).awaitSingle()
+                return
+            }
         }
+
 
         val channel = event.message.channel.awaitSingle() as GuildMessageChannel
         val annotation = command.findAnnotation<Command>()!!
@@ -140,7 +155,7 @@ class Client {
             event.message.restChannel.createMessage(
                 EmbedData.builder()
                     .title("Missing arguments")
-                    .description("TODO")
+                    .description("TODO (Kat was here)")
                     .color(Color.RED.rgb)
                     .build()
             ).awaitSingle()
