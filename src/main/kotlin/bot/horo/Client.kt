@@ -15,7 +15,6 @@ import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import discord4j.rest.util.Color
 import discord4j.rest.util.PermissionSet
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -75,14 +74,14 @@ class Client {
                                         it.message.content.isNotBlank() &&
                                         it.message.content.startsWith(".horo")
                             }
-                            .collect { event -> handleMessage(event) }
+                            .collect { event -> launch { handleMessage(event) } }
                     }
                 }
             }
             .block()
     }
 
-    private suspend fun handleMessage(event: MessageCreateEvent) = GlobalScope.launch {
+    private suspend fun handleMessage(event: MessageCreateEvent) {
         val command = commands.find { c -> event.message.content.startsWith(".horo${c.name}") }
 
         if (command == null) {
@@ -93,7 +92,7 @@ class Client {
                     .color(Color.RED.rgb)
                     .build()
             ).awaitSingle()
-            return@launch
+            return
         }
 
         val channel = event.message.channel.awaitSingle() as GuildMessageChannel
@@ -111,7 +110,7 @@ class Client {
                     )
                     .setColor(Color.RED)
             }.awaitSingle()
-            return@launch
+            return
         }
 
         val botPermissions = channel.getEffectivePermissions(event.client.selfId).awaitSingle()
@@ -127,7 +126,7 @@ class Client {
                     )
                     .setColor(Color.RED)
             }.awaitSingle()
-            return@launch
+            return
         }
 
         val parametersSupplied = "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content).toList()
@@ -145,7 +144,7 @@ class Client {
                     .color(Color.RED.rgb)
                     .build()
             ).awaitSingle()
-            return@launch
+            return
         }
 
         command.callSuspendBy(
