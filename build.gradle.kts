@@ -14,6 +14,7 @@ plugins {
 
 group = "bot.horo"
 version = "1.0-SNAPSHOT"
+description = "A Discord bot written with love in Kotlin using Discord4J"
 
 repositories {
     mavenCentral()

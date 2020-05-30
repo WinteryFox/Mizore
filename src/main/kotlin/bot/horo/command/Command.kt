@@ -11,6 +11,4 @@ annotation class Command(
 
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.VALUE_PARAMETER)
-annotation class Parameter(
-    val name: String
-)
+annotation class Parameter

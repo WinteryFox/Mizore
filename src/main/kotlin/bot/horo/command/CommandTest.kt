@@ -7,9 +7,9 @@ import kotlinx.coroutines.reactive.awaitSingle
 @Command
 suspend fun test(
     event: MessageCreateEvent,
-    @Parameter("title")
+    @Parameter
     title: String,
-    @Parameter("description")
+    @Parameter
     description: String
 ) {
     event.message.restChannel.createMessage(

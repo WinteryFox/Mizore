@@ -15,6 +15,7 @@ import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import discord4j.rest.util.Color
 import discord4j.rest.util.PermissionSet
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -29,15 +30,11 @@ import org.reflections.util.ConfigurationBuilder
 import kotlin.reflect.full.*
 import kotlin.reflect.jvm.kotlinFunction
 
-@ExperimentalStdlibApi
 internal val commands = Reflections(
     ConfigurationBuilder().setUrls(ClasspathHelper.forJavaClassPath()).setScanners(MethodAnnotationsScanner())
 )
     .getMethodsAnnotatedWith(Command::class.java)
-    .map { method ->
-        method.name to method.kotlinFunction!!
-    }
-    .toMap()
+    .map { method -> method.kotlinFunction!! }
 
 @ExperimentalStdlibApi
 class Client {
@@ -78,86 +75,81 @@ class Client {
                                         it.message.content.isNotBlank() &&
                                         it.message.content.startsWith(".horo")
                             }
-                            .collect { event ->
-                                val command =
-                                    commands.values.find { c -> event.message.content.startsWith(".horo${c.name}") }
-
-                                if (command != null) {
-                                    val channel = event.message.channel.awaitSingle() as GuildMessageChannel
-                                    val botPermissions =
-                                        channel.getEffectivePermissions(event.client.selfId).awaitSingle()
-                                    val userPermissions =
-                                        channel.getEffectivePermissions(event.member.get().id).awaitSingle()
-                                    val annotation = command.findAnnotation<Command>()!!
-
-                                    if (botPermissions.containsAll(annotation.botPermissions.toList()))
-                                        if (userPermissions.containsAll(annotation.userPermissions.toList())) {
-                                            val parametersSupplied =
-                                                "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content)
-                                                    .toList()
-                                            val parameters =
-                                                command.valueParameters
-                                                    .filter { it.hasAnnotation<Parameter>() }
-                                                    .map { it.name }
-
-                                            if (parameters.size != parametersSupplied.size ||
-                                                !parameters.all { parameter ->
-                                                    parametersSupplied.map { it.groupValues[1] }
-                                                        .contains(parameter)
-                                                }
-                                            ) {
-                                                event.message.restChannel.createMessage(
-                                                    EmbedData.builder()
-                                                        .title("Missing arguments")
-                                                        .description("TODO")
-                                                        .color(Color.RED.rgb)
-                                                        .build()
-                                                ).awaitSingle()
-                                                return@collect
-                                            }
-
-                                            command.callSuspendBy(
-                                                mapOf(
-                                                    command.findParameterByName("event")!! to event,
-                                                    *parametersSupplied.map { parameter ->
-                                                        command.findParameterByName(parameter.groupValues[1])!! to parameter.groupValues[2]
-                                                    }.toTypedArray()
-                                                )
-                                            )
-                                        } else
-                                            channel.createEmbed { spec ->
-                                                spec.setTitle("You are missing permissions!")
-                                                    .setDescription(
-                                                        "You are missing the following permissions; ${PermissionSet.of(*annotation.userPermissions)
-                                                            .andNot(userPermissions)
-                                                            .joinToString { permission ->
-                                                                permission.name.toLowerCase().capitalize()
-                                                            }}"
-                                                    )
-                                                    .setColor(Color.RED)
-                                            }.awaitSingle()
-                                    else
-                                        channel.createEmbed { spec ->
-                                            spec.setTitle("I am missing permissions!")
-                                                .setDescription(
-                                                    "I am missing the following permissions; ${PermissionSet.of(*annotation.botPermissions)
-                                                        .andNot(botPermissions)
-                                                        .joinToString { permission ->
-                                                            permission.name.toLowerCase().capitalize().replace("_", " ")
-                                                        }}"
-                                                )
-                                                .setColor(Color.RED)
-                                        }.awaitSingle()
-                                } else
-                                    event.message.channel.awaitSingle().createEmbed { spec ->
-                                        spec.setTitle("Unknown command")
-                                            .setDescription("Are you sure you typed that right?")
-                                            .setColor(Color.RED)
-                                    }.awaitSingle()
-                            }
+                            .collect { event -> handleMessage(event) }
                     }
                 }
             }
             .block()
+    }
+
+    @ExperimentalStdlibApi
+    private suspend fun handleMessage(event: MessageCreateEvent) = GlobalScope.launch {
+        val command = commands.find { c -> event.message.content.startsWith(".horo${c.name}") }
+
+        if (command != null) {
+            val channel = event.message.channel.awaitSingle() as GuildMessageChannel
+            val botPermissions = channel.getEffectivePermissions(event.client.selfId).awaitSingle()
+            val userPermissions = channel.getEffectivePermissions(event.member.get().id).awaitSingle()
+            val annotation = command.findAnnotation<Command>()!!
+
+            if (botPermissions.containsAll(annotation.botPermissions.toList()))
+                if (userPermissions.containsAll(annotation.userPermissions.toList())) {
+                    val parametersSupplied =
+                        "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content).toList()
+                    val parameters = command.valueParameters.filter { it.hasAnnotation<Parameter>() }
+
+                    if (parameters.size != parametersSupplied.size ||
+                        !parameters.all { parameter ->
+                            parametersSupplied.map { it.groupValues[1] }.contains(parameter.name)
+                        }
+                    ) {
+                        event.message.restChannel.createMessage(
+                            EmbedData.builder()
+                                .title("Missing arguments")
+                                .description("TODO")
+                                .color(Color.RED.rgb)
+                                .build()
+                        ).awaitSingle()
+                        return@launch
+                    }
+
+                    command.callSuspendBy(
+                        mapOf(
+                            command.findParameterByName("event")!! to event,
+                            *parametersSupplied.map { parameter ->
+                                parameters.find { it.name == parameter.groupValues[1] }!! to parameter.groupValues[2]
+                            }.toTypedArray()
+                        )
+                    )
+                } else
+                    channel.createEmbed { spec ->
+                        spec.setTitle("You are missing permissions!")
+                            .setDescription(
+                                "You are missing the following permissions; ${PermissionSet.of(*annotation.userPermissions)
+                                    .andNot(userPermissions)
+                                    .joinToString { permission ->
+                                        permission.name.toLowerCase().capitalize()
+                                    }}"
+                            )
+                            .setColor(Color.RED)
+                    }.awaitSingle()
+            else
+                channel.createEmbed { spec ->
+                    spec.setTitle("I am missing permissions!")
+                        .setDescription(
+                            "I am missing the following permissions; ${PermissionSet.of(*annotation.botPermissions)
+                                .andNot(botPermissions)
+                                .joinToString { permission ->
+                                    permission.name.toLowerCase().capitalize().replace("_", " ")
+                                }}"
+                        )
+                        .setColor(Color.RED)
+                }.awaitSingle()
+        } else
+            event.message.channel.awaitSingle().createEmbed { spec ->
+                spec.setTitle("Unknown command")
+                    .setDescription("Are you sure you typed that right?")
+                    .setColor(Color.RED)
+            }.awaitSingle()
     }
 }
