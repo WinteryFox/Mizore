@@ -7,7 +7,6 @@ import discord4j.rest.util.Color
 import kotlinx.coroutines.reactive.awaitSingle
 import java.lang.reflect.Method
 
-@ExperimentalStdlibApi
 @Command
 suspend fun help(event: MessageCreateEvent) {
     event.message.restChannel
@@ -15,8 +14,7 @@ suspend fun help(event: MessageCreateEvent) {
             EmbedData.builder()
                 .title("Here's a list of my commands")
                 .description(
-                    commands.values
-                        .stream()
+                    commands.stream()
                         .map { command ->
                             ".horo${command.name}"
                         }
