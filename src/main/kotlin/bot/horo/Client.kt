@@ -30,13 +30,15 @@ import kotlin.reflect.full.*
 @ExperimentalStdlibApi
 class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
-    private val client = DiscordClient.create(System.getenv("token"))
-
-    init {
-        client.gateway()
+    private val client =
+        DiscordClient.create(System.getenv("token"))
+            .gateway()
             .setSharding(ShardingStrategy.recommended())
             .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
             .setInitialStatus { Presence.doNotDisturb(Activity.playing("Loading... Please wait...")) }
+
+    fun login() {
+        client
             .withEventDispatcher { dispatcher ->
                 mono(CoroutineName("EventDispatcherCoroutine")) {
                     launch(CoroutineName("ReadyCoroutine")) {

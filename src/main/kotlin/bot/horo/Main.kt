@@ -2,5 +2,5 @@ package bot.horo
 
 @ExperimentalStdlibApi
 fun main() {
-    Client()
+    Client().login()
 }
