@@ -1,6 +1,5 @@
 package bot.horo.command
 
-import bot.horo.commands
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.discordjson.json.EmbedData
 import discord4j.rest.util.Color

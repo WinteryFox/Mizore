@@ -24,7 +24,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.discord4j.discord4j:discord4j-core:aafd427")
+    implementation("com.discord4j.discord4j:discord4j-core:a304ec2")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.reflections:reflections:0.9.10")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.72")
@@ -42,6 +42,7 @@ tasks {
     }
     shadowJar {
         archiveBaseName.set("Horo")
+        archiveVersion.set("")
         mergeServiceFiles()
         manifest {
             attributes(mapOf("Main-Class" to "bot.horo.MainKt"))

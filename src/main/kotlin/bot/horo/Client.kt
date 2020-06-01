@@ -2,6 +2,7 @@ package bot.horo
 
 import bot.horo.command.Command
 import bot.horo.command.Parameter
+import bot.horo.command.commands
 import discord4j.core.DiscordClient
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
 import discord4j.core.`object`.presence.Activity
@@ -22,21 +23,13 @@ import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
-import org.reflections.Reflections
-import org.reflections.scanners.MethodAnnotationsScanner
-import org.reflections.util.ClasspathHelper
-import org.reflections.util.ConfigurationBuilder
+import org.slf4j.LoggerFactory
+import java.lang.reflect.InvocationTargetException
 import kotlin.reflect.full.*
-import kotlin.reflect.jvm.kotlinFunction
-
-internal val commands = Reflections(
-    ConfigurationBuilder().setUrls(ClasspathHelper.forJavaClassPath()).setScanners(MethodAnnotationsScanner())
-)
-    .getMethodsAnnotatedWith(Command::class.java)
-    .map { method -> method.kotlinFunction!! }
 
 @ExperimentalStdlibApi
 class Client {
+    private val logger = LoggerFactory.getLogger(Client::class.java)
     private val client = DiscordClient.create(System.getenv("token"))
 
     init {
@@ -44,28 +37,34 @@ class Client {
             .setSharding(ShardingStrategy.recommended())
             .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
             .setInitialStatus { Presence.doNotDisturb(Activity.playing("Loading... Please wait...")) }
-            .withGateway { gateway ->
-                mono {
-                    launch {
-                        gateway.on(ReadyEvent::class.java)
+            .withEventDispatcher { dispatcher ->
+                mono(CoroutineName("EventDispatcherCoroutine")) {
+                    launch(CoroutineName("ReadyCoroutine")) {
+                        dispatcher.on(ReadyEvent::class.java)
                             .asFlow()
                             .collect {
-                                it.client.updatePresence(Presence.online(Activity.listening(".horohelp for help")))
-                                    .awaitFirstOrNull()
+                                logger.info("Shard ${it.shardInfo.index} is ready!")
+                                it.client.updatePresence(
+                                    Presence.online(Activity.listening(".horohelp for help")),
+                                    it.shardInfo.index
+                                ).awaitFirstOrNull()
                             }
                     }
 
-                    launch {
-                        gateway.on(ReconnectEvent::class.java)
+                    launch(CoroutineName("ReconnectCoroutine")) {
+                        dispatcher.on(ReconnectEvent::class.java)
                             .asFlow()
                             .collect {
-                                gateway.updatePresence(Presence.online(Activity.listening(".horohelp for help")))
-                                    .awaitFirstOrNull()
+                                logger.info("Shard ${it.shardInfo.index} has reconnected")
+                                it.client.updatePresence(
+                                    Presence.online(Activity.listening(".horohelp for help")),
+                                    it.shardInfo.index
+                                ).awaitFirstOrNull()
                             }
                     }
 
-                    launch {
-                        gateway.on(MessageCreateEvent::class.java)
+                    launch(CoroutineName("MessageCreateCoroutine")) {
+                        dispatcher.on(MessageCreateEvent::class.java)
                             .asFlow()
                             .filter {
                                 it.member.isPresent &&
@@ -74,10 +73,17 @@ class Client {
                                         it.message.content.isNotBlank() &&
                                         it.message.content.startsWith(".horo")
                             }
-                            .collect { event -> launch { handleMessage(event) } }
+                            .collect { event ->
+                                launch(CoroutineName("CommandCoroutine")) {
+                                    handleMessage(event)
+                                }
+                            }
                     }
                 }
             }
+            .login()
+            .block()!!
+            .onDisconnect()
             .block()
     }
 
@@ -90,6 +96,7 @@ class Client {
             val boundary: Int = if (userInput.indexOf(" ") == -1) userInput.length else userInput.indexOf(" ")
             val userCmd: String = userInput.substring(".horo".length, boundary)
 
+            logger.debug("No exact command match for $userInput")
             command = commands.map { cmd -> Pair(cmd, cmd.name.fuzzyScore(userCmd)) }
                 .filter { pair ->
                     pair.second > 1
@@ -98,17 +105,17 @@ class Client {
                 ?.first
 
             if (command == null) { // if not null, exit this and continue executing the corrected command
+                logger.debug("Fuzzy matched failed to find a match for $userCmd")
                 event.message.restChannel.createMessage(
                     EmbedData.builder()
                         .title("Unknown command")
                         .description("Are you sure you typed that right?")
-                        .color(Color.RED.rgb)
+                        .color(Color.YELLOW.rgb)
                         .build()
                 ).awaitSingle()
                 return
             }
         }
-
 
         val channel = event.message.channel.awaitSingle() as GuildMessageChannel
         val annotation = command.findAnnotation<Command>()!!
@@ -123,7 +130,7 @@ class Client {
                                 permission.name.toLowerCase().capitalize().replace("_", " ")
                             }}"
                     )
-                    .setColor(Color.RED)
+                    .setColor(Color.ORANGE)
             }.awaitSingle()
             return
         }
@@ -139,7 +146,7 @@ class Client {
                                 permission.name.toLowerCase().capitalize().replace("_", " ")
                             }}"
                     )
-                    .setColor(Color.RED)
+                    .setColor(Color.ORANGE)
             }.awaitSingle()
             return
         }
@@ -156,19 +163,37 @@ class Client {
                 EmbedData.builder()
                     .title("Missing arguments")
                     .description("TODO (Kat was here)")
-                    .color(Color.RED.rgb)
+                    .color(Color.YELLOW.rgb)
                     .build()
             ).awaitSingle()
             return
         }
 
-        command.callSuspendBy(
-            mapOf(
-                command.findParameterByName("event")!! to event,
-                *parametersSupplied.map { parameter ->
-                    parameters.find { it.name == parameter.groupValues[1] }!! to parameter.groupValues[2]
-                }.toTypedArray()
+        logger.debug("Executing command ${command.name}")
+        try {
+            command.callSuspendBy(
+                mapOf(
+                    command.findParameterByName("event")!! to event,
+                    *parametersSupplied.map { parameter ->
+                        parameters.find { it.name == parameter.groupValues[1] }!! to parameter.groupValues[2]
+                    }.toTypedArray()
+                )
             )
-        )
+        } catch (exception: InvocationTargetException) {
+            logger.error("Command handler threw an exception", exception.cause!!)
+            channel
+                .createEmbed { spec ->
+                    spec
+                        .setTitle("Well that didn't go as planned...")
+                        .setDescription(
+                            """
+                            An error occurred while processing your command; ${exception.cause!!.message}
+                            Try again later!
+                            """.trimIndent()
+                        )
+                        .setColor(Color.RED)
+                }
+                .awaitSingle()
+        }
     }
 }
