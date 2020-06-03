@@ -47,7 +47,7 @@ class Client {
                             .collect {
                                 logger.info("Shard ${it.shardInfo.index} is ready!")
                                 it.client.updatePresence(
-                                    Presence.online(Activity.listening(".horohelp for help")),
+                                    Presence.online(Activity.listening(".horohelp for help | Shard ${it.shardInfo.index}")),
                                     it.shardInfo.index
                                 ).awaitFirstOrNull()
                             }
@@ -59,7 +59,7 @@ class Client {
                             .collect {
                                 logger.info("Shard ${it.shardInfo.index} has reconnected")
                                 it.client.updatePresence(
-                                    Presence.online(Activity.listening(".horohelp for help")),
+                                    Presence.online(Activity.listening(".horohelp for help | Shard ${it.shardInfo.index}")),
                                     it.shardInfo.index
                                 ).awaitFirstOrNull()
                             }
@@ -100,9 +100,7 @@ class Client {
 
             logger.debug("No exact command match for $userInput")
             command = commands.map { cmd -> Pair(cmd, cmd.name.fuzzyScore(userCmd)) }
-                .filter { pair ->
-                    pair.second > 1
-                }
+                .filter { pair -> pair.second > 1 }
                 .maxBy { pair -> pair.second }
                 ?.first
 
@@ -183,19 +181,17 @@ class Client {
             )
         } catch (exception: InvocationTargetException) {
             logger.error("Command handler threw an exception", exception.cause!!)
-            channel
-                .createEmbed { spec ->
-                    spec
-                        .setTitle("Well that didn't go as planned...")
-                        .setDescription(
-                            """
+            channel.createEmbed { spec ->
+                spec
+                    .setTitle("Well that didn't go as planned...")
+                    .setDescription(
+                        """
                             An error occurred while processing your command; ${exception.cause!!.message}
                             Try again later!
                             """.trimIndent()
-                        )
-                        .setColor(Color.RED)
-                }
-                .awaitSingle()
+                    )
+                    .setColor(Color.RED)
+            }.awaitSingle()
         }
     }
 }
