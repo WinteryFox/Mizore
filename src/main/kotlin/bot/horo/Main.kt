@@ -10,7 +10,7 @@ fun main() {
         command("ping") {
             dispatch {
                 this.event.message.channel.awaitSingle().createMessage(
-                    "Pong! My ping is %s milliseconds %s".format(
+                    "Pong! My ping is %s milliseconds".format(
                         this.event.client.getGatewayClient(this.event.shardInfo.index).get().responseTime.toMillis()
                     )
                 ).awaitSingle()
