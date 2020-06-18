@@ -1,25 +1,52 @@
 package bot.horo.command
 
+import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.rest.util.Permission
-import org.reflections.Reflections
-import org.reflections.scanners.MethodAnnotationsScanner
-import org.reflections.util.ClasspathHelper
-import org.reflections.util.ConfigurationBuilder
-import kotlin.reflect.jvm.kotlinFunction
+import discord4j.rest.util.PermissionSet
 
-internal val commands = Reflections(
-    ConfigurationBuilder().setUrls(ClasspathHelper.forJavaClassPath()).setScanners(MethodAnnotationsScanner())
-)
-    .getMethodsAnnotatedWith(Command::class.java)
-    .map { method -> method.kotlinFunction!! }
+internal val commands = mutableListOf<Command>()
 
-@Retention(AnnotationRetention.RUNTIME)
-@Target(AnnotationTarget.FUNCTION)
-annotation class Command(
-    val botPermissions: Array<Permission> = [Permission.SEND_MESSAGES],
-    val userPermissions: Array<Permission> = [Permission.SEND_MESSAGES]
+class Command(
+    val name: String,
+    val dispatch: suspend CommandContext.() -> Unit,
+    val flags: MutableList<String> = mutableListOf(),
+    val botPermissions: PermissionSet = PermissionSet.of(Permission.SEND_MESSAGES),
+    val userPermissions: PermissionSet = PermissionSet.of(Permission.SEND_MESSAGES)
 )
 
-@Retention(AnnotationRetention.RUNTIME)
-@Target(AnnotationTarget.VALUE_PARAMETER)
-annotation class Parameter
+class CommandBuilder(private val name: String) {
+    private lateinit var dispatch: suspend CommandContext.() -> Unit
+    private val flags = mutableListOf<String>()
+
+    fun dispatch(dispatch: suspend CommandContext.() -> Unit) {
+        this.dispatch = dispatch
+    }
+
+    fun flag(name: String): Flag {
+        this.flags.add(name)
+        return Flag(name)
+    }
+
+    fun build() = Command(name, dispatch, flags)
+}
+
+object CommandsBuilder {
+    fun command(name: String, dsl: CommandBuilder.() -> Unit) {
+        commands.add(CommandBuilder(name).apply(dsl).build())
+    }
+}
+
+data class Flag(val name: String)
+
+data class CommandContext(
+    val event: MessageCreateEvent,
+    val flags: Map<String, String>
+) {
+    fun Flag.get(): String {
+        return flags.getValue(name)
+    }
+}
+
+fun registerCommands(builder: CommandsBuilder.() -> Unit) {
+    CommandsBuilder.apply(builder)
+}

@@ -1,7 +1,6 @@
 package bot.horo
 
-import bot.horo.command.Command
-import bot.horo.command.Parameter
+import bot.horo.command.CommandContext
 import bot.horo.command.commands
 import discord4j.core.DiscordClient
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
@@ -15,7 +14,6 @@ import discord4j.discordjson.json.EmbedData
 import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import discord4j.rest.util.Color
-import discord4j.rest.util.PermissionSet
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -25,9 +23,7 @@ import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
 import java.lang.reflect.InvocationTargetException
-import kotlin.reflect.full.*
 
-@ExperimentalStdlibApi
 class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
     private val client =
@@ -118,13 +114,12 @@ class Client {
         }
 
         val channel = event.message.channel.awaitSingle() as GuildMessageChannel
-        val annotation = command.findAnnotation<Command>()!!
         val userPermissions = channel.getEffectivePermissions(event.member.get().id).awaitSingle()
-        if (!userPermissions.containsAll(annotation.userPermissions.toList())) {
+        if (!userPermissions.containsAll(command.userPermissions.toList())) {
             channel.createEmbed { spec ->
                 spec.setTitle("You are missing permissions!")
                     .setDescription(
-                        "You are missing the following permissions; ${PermissionSet.of(*annotation.userPermissions)
+                        "You are missing the following permissions; ${command.userPermissions
                             .andNot(userPermissions)
                             .joinToString { permission ->
                                 permission.name.toLowerCase().capitalize().replace("_", " ")
@@ -136,11 +131,11 @@ class Client {
         }
 
         val botPermissions = channel.getEffectivePermissions(event.client.selfId).awaitSingle()
-        if (!botPermissions.containsAll(annotation.botPermissions.toList())) {
+        if (!botPermissions.containsAll(command.botPermissions.toList())) {
             channel.createEmbed { spec ->
                 spec.setTitle("I am missing permissions!")
                     .setDescription(
-                        "I am missing the following permissions; ${PermissionSet.of(*annotation.botPermissions)
+                        "I am missing the following permissions; ${command.botPermissions
                             .andNot(botPermissions)
                             .joinToString { permission ->
                                 permission.name.toLowerCase().capitalize().replace("_", " ")
@@ -152,11 +147,10 @@ class Client {
         }
 
         val parametersSupplied = "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content).toList()
-        val parameters = command.valueParameters.filter { it.hasAnnotation<Parameter>() }
 
-        if (parameters.size != parametersSupplied.size ||
-            !parameters.all { parameter ->
-                parametersSupplied.map { it.groupValues[1] }.contains(parameter.name)
+        if (command.flags.size != parametersSupplied.size ||
+            !command.flags.all { parameter ->
+                parametersSupplied.map { it.groupValues[1] }.contains(parameter)
             }
         ) {
             event.message.restChannel.createMessage(
@@ -171,12 +165,10 @@ class Client {
 
         logger.debug("Executing command ${command.name}")
         try {
-            command.callSuspendBy(
-                mapOf(
-                    command.findParameterByName("event")!! to event,
-                    *parametersSupplied.map { parameter ->
-                        parameters.find { it.name == parameter.groupValues[1] }!! to parameter.groupValues[2]
-                    }.toTypedArray()
+            command.dispatch.invoke(
+                CommandContext(
+                    event,
+                    parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap()
                 )
             )
         } catch (exception: InvocationTargetException) {
