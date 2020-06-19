@@ -2,10 +2,14 @@ package bot.horo
 
 import bot.horo.command.CommandContext
 import bot.horo.command.commands
+import bot.horo.command.traverse
 import discord4j.core.DiscordClient
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Presence
+import discord4j.core.event.domain.guild.GuildCreateEvent
+import discord4j.core.event.domain.lifecycle.ConnectEvent
+import discord4j.core.event.domain.lifecycle.DisconnectEvent
 import discord4j.core.event.domain.lifecycle.ReadyEvent
 import discord4j.core.event.domain.lifecycle.ReconnectEvent
 import discord4j.core.event.domain.message.MessageCreateEvent
@@ -22,7 +26,7 @@ import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
-import java.lang.reflect.InvocationTargetException
+import java.lang.RuntimeException
 
 class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
@@ -41,11 +45,27 @@ class Client {
                         dispatcher.on(ReadyEvent::class.java)
                             .asFlow()
                             .collect {
-                                logger.info("Shard ${it.shardInfo.index} is ready!")
+                                logger.info("Shard #${it.shardInfo.index} is ready!")
                                 it.client.updatePresence(
-                                    Presence.online(Activity.listening(".horohelp for help | Shard ${it.shardInfo.index}")),
+                                    Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
                                     it.shardInfo.index
                                 ).awaitFirstOrNull()
+                            }
+                    }
+
+                    launch(CoroutineName("ConnectCoroutine")) {
+                        dispatcher.on(ConnectEvent::class.java)
+                            .asFlow()
+                            .collect {
+                                logger.info("Shard #${it.shardInfo.index} has connected")
+                            }
+                    }
+
+                    launch(CoroutineName("DisconnectCoroutine")) {
+                        dispatcher.on(DisconnectEvent::class.java)
+                            .asFlow()
+                            .collect {
+                                logger.info("Shard #${it.shardInfo.index} has disconnected")
                             }
                     }
 
@@ -53,11 +73,23 @@ class Client {
                         dispatcher.on(ReconnectEvent::class.java)
                             .asFlow()
                             .collect {
-                                logger.info("Shard ${it.shardInfo.index} has reconnected")
+                                logger.info("Shard #${it.shardInfo.index} has reconnected")
                                 it.client.updatePresence(
-                                    Presence.online(Activity.listening(".horohelp for help | Shard ${it.shardInfo.index}")),
+                                    Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
                                     it.shardInfo.index
                                 ).awaitFirstOrNull()
+                            }
+                    }
+
+                    launch(CoroutineName("GuildCreateCoroutine")) {
+                        dispatcher.on(GuildCreateEvent::class.java)
+                            .asFlow()
+                            .collect {
+
+                                logger.info(
+                                    "Guild \"${it.guild.name}\" created, shard at ${it.client.guilds.count()
+                                        .awaitSingle()} guilds (${it.client.gatewayClientGroup.shardCount} total)"
+                                )
                             }
                     }
 
@@ -86,31 +118,16 @@ class Client {
     }
 
     private suspend fun handleMessage(event: MessageCreateEvent) {
-        var command = commands.find { c -> event.message.content.startsWith(".horo${c.name}") }
-
+        val command = commands.traverse(event.message.content.removePrefix(".horo"))
         if (command == null) {
-            // do fuzzy match here
-            val userInput: String = event.message.content
-            val boundary: Int = if (userInput.indexOf(" ") == -1) userInput.length else userInput.indexOf(" ")
-            val userCmd: String = userInput.substring(".horo".length, boundary)
-
-            logger.debug("No exact command match for $userInput")
-            command = commands.map { cmd -> Pair(cmd, cmd.name.fuzzyScore(userCmd)) }
-                .filter { pair -> pair.second > 1 }
-                .maxBy { pair -> pair.second }
-                ?.first
-
-            if (command == null) { // if not null, exit this and continue executing the corrected command
-                logger.debug("Fuzzy matched failed to find a match for $userCmd")
-                event.message.restChannel.createMessage(
-                    EmbedData.builder()
-                        .title("Unknown command")
-                        .description("Are you sure you typed that right?")
-                        .color(Color.YELLOW.rgb)
-                        .build()
-                ).awaitSingle()
-                return
-            }
+            event.message.restChannel.createMessage(
+                EmbedData.builder()
+                    .title("Unknown command")
+                    .description("Are you sure you typed that right?")
+                    .color(Color.YELLOW.rgb)
+                    .build()
+            ).awaitSingle()
+            return
         }
 
         val channel = event.message.channel.awaitSingle() as GuildMessageChannel
@@ -148,8 +165,8 @@ class Client {
 
         val parametersSupplied = "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content).toList()
 
-        if (command.flags.size != parametersSupplied.size ||
-            !command.flags.all { parameter ->
+        if (command.parameters.size != parametersSupplied.size ||
+            !command.parameters.all { parameter ->
                 parametersSupplied.map { it.groupValues[1] }.contains(parameter)
             }
         ) {
@@ -171,16 +188,16 @@ class Client {
                     parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap()
                 )
             )
-        } catch (exception: InvocationTargetException) {
+        } catch (exception: RuntimeException) {
             logger.error("Command handler threw an exception", exception.cause!!)
             channel.createEmbed { spec ->
                 spec
                     .setTitle("Well that didn't go as planned...")
                     .setDescription(
                         """
-                            An error occurred while processing your command; ${exception.cause!!.message}
-                            Try again later!
-                            """.trimIndent()
+                        An error occurred while processing your command; ${exception.cause!!.message}
+                        Try again later!
+                        """.trimIndent()
                     )
                     .setColor(Color.RED)
             }.awaitSingle()

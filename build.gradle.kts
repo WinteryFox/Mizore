@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "bot.horo"
-version = "1.0-SNAPSHOT"
+version = "0.0.1"
 description = "A Discord bot written with love in Kotlin using Discord4J"
 
 repositories {
@@ -26,8 +26,6 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("com.discord4j.discord4j:discord4j-core:a304ec2")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("org.reflections:reflections:0.9.10")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.72")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.0-SNAPSHOT")
