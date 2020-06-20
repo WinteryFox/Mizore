@@ -118,7 +118,7 @@ class Client {
     }
 
     private suspend fun handleMessage(event: MessageCreateEvent) {
-        val command = commands.traverse(event.message.content.removePrefix(".horo"))
+        val command = commands.traverse(event.message.content.removePrefix(".horo").substringBefore(" --"))
         if (command == null) {
             event.message.restChannel.createMessage(
                 EmbedData.builder()

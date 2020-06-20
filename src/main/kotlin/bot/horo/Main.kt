@@ -15,12 +15,6 @@ fun main() {
                     )
                 ).awaitSingle()
             }
-
-            subcommand("pong") {
-                dispatch {
-                    this.event.message.channel.awaitSingle().createMessage("Hear you loud and clear!").awaitSingle()
-                }
-            }
         }
 
         command("help") {
