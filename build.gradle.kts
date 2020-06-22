@@ -20,11 +20,12 @@ repositories {
     mavenCentral()
     maven("https://jitpack.io")
     maven("https://repo.spring.io/snapshot")
+    maven("https://oss.sonatype.org/content/repositories/snapshots")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.discord4j.discord4j:discord4j-core:a304ec2")
+    implementation("com.discord4j.discord4j:discord4j-core:2b6287f")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")

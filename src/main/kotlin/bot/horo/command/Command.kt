@@ -38,6 +38,8 @@ class CommandBuilder(private val name: String) {
     private lateinit var dispatch: suspend CommandContext.() -> Unit
     private val parameters = mutableListOf<String>()
     private val children = mutableListOf<Command>()
+    private val botPermissions = PermissionSet.none()
+    private val userPermissions = PermissionSet.none()
 
     fun dispatch(dispatch: suspend CommandContext.() -> Unit) {
         this.dispatch = dispatch
@@ -48,9 +50,17 @@ class CommandBuilder(private val name: String) {
         return Parameter(name)
     }
 
+    fun botPermissions(vararg permission: Permission) {
+        this.botPermissions.addAll(permission)
+    }
+
+    fun userPermission(vararg permission: Permission) {
+        this.userPermissions.addAll(permission)
+    }
+
     fun subcommand(name: String, dsl: CommandBuilder.() -> Unit) = children.add(CommandBuilder(name).apply(dsl).build())
 
-    fun build() = Command(name, dispatch, parameters, children = children)
+    fun build() = Command(name, dispatch, parameters, botPermissions, userPermissions, children)
 }
 
 object CommandsBuilder {

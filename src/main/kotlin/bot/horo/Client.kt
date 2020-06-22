@@ -27,18 +27,21 @@ import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
 import java.lang.RuntimeException
+import java.lang.management.ManagementFactory
+import kotlin.concurrent.thread
+import kotlin.math.floor
+import kotlin.time.*
 
+@ExperimentalTime
 class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
-    private val client =
+
+    init {
         DiscordClient.create(System.getenv("token"))
             .gateway()
             .setSharding(ShardingStrategy.recommended())
             .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
             .setInitialStatus { Presence.doNotDisturb(Activity.playing("Loading... Please wait...")) }
-
-    fun login() {
-        client
             .withEventDispatcher { dispatcher ->
                 mono(CoroutineName("EventDispatcherCoroutine")) {
                     launch(CoroutineName("ReadyCoroutine")) {
@@ -65,7 +68,14 @@ class Client {
                         dispatcher.on(DisconnectEvent::class.java)
                             .asFlow()
                             .collect {
-                                logger.info("Shard #${it.shardInfo.index} has disconnected")
+                                val message =
+                                    "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${it.status.reason.orElse(
+                                        "No reason specified"
+                                    )})"
+                                if (it.cause.isPresent)
+                                    logger.error(message, it.cause.get())
+                                else
+                                    logger.error(message)
                             }
                     }
 
@@ -85,7 +95,6 @@ class Client {
                         dispatcher.on(GuildCreateEvent::class.java)
                             .asFlow()
                             .collect {
-
                                 logger.info(
                                     "Guild \"${it.guild.name}\" created, shard at ${it.client.guilds.count()
                                         .awaitSingle()} guilds (${it.client.gatewayClientGroup.shardCount} total)"
@@ -112,6 +121,31 @@ class Client {
                 }
             }
             .login()
+            .doOnNext { client ->
+                thread {
+                    var input = readLine()
+                    while (input != null) {
+                        when (input.toLowerCase()) {
+                            "count" -> println(
+                                "Currently have ${client.guilds.count().block()} guilds and ${client.users.count()
+                                    .block()} users"
+                            )
+                            "uptime" -> {
+                                val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
+                                println(
+                                    "Client has been online for %s days %s hours %s minutes %s seconds".format(
+                                        floor(uptime.inDays).toInt(),
+                                        floor(uptime.inHours).toInt(),
+                                        floor(uptime.inMinutes).toInt(),
+                                        floor(uptime.inSeconds).toInt()
+                                    )
+                                )
+                            }
+                        }
+                        input = readLine()
+                    }
+                }
+            }
             .block()!!
             .onDisconnect()
             .block()
