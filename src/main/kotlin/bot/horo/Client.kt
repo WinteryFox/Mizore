@@ -122,22 +122,23 @@ class Client {
             }
             .login()
             .doOnNext { client ->
-                thread {
+                thread(name = "ConsoleCommand") {
                     var input = readLine()
                     while (input != null) {
                         when (input.toLowerCase()) {
-                            "count" -> println(
+                            "count" -> logger.info(
                                 "Currently have ${client.guilds.count().block()} guilds and ${client.users.count()
                                     .block()} users"
                             )
                             "uptime" -> {
                                 val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
-                                println(
-                                    "Client has been online for %s days %s hours %s minutes %s seconds".format(
-                                        floor(uptime.inDays).toInt(),
-                                        floor(uptime.inHours).toInt(),
-                                        floor(uptime.inMinutes).toInt(),
-                                        floor(uptime.inSeconds).toInt()
+                                logger.info(
+                                    "Client has been online for %s weeks %s days %s hours %s minutes %s seconds".format(
+                                        floor(uptime.inDays / 7).toInt(),
+                                        floor(uptime.inDays).toInt() % 7,
+                                        floor(uptime.inHours).toInt() % 24,
+                                        floor(uptime.inMinutes).toInt() % 60,
+                                        floor(uptime.inSeconds).toInt() % 60
                                     )
                                 )
                             }
