@@ -1,8 +1,12 @@
 package bot.horo.command
 
+import bot.horo.Database
+import discord4j.common.util.Snowflake
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.rest.util.Permission
 import discord4j.rest.util.PermissionSet
+import org.jetbrains.annotations.PropertyKey
+import java.util.*
 
 internal val commands = mutableListOf<Command>()
 fun MutableList<Command>.traverse(input: String): Command? {
@@ -73,11 +77,25 @@ data class Parameter(val name: String)
 
 data class CommandContext(
     val event: MessageCreateEvent,
-    val parameters: Map<String, String>
+    val parameters: Map<String, String>,
+    val database: Database
 ) {
     fun Parameter.get(): String {
         return parameters.getValue(name)
     }
+
+    suspend fun translate(@PropertyKey(resourceBundle = "localization") key: String, guild: Snowflake): String =
+        ResourceBundle.getBundle(
+            "localization",
+            Locale(
+                database.query(
+                    "SELECT * FROM guilds WHERE snowflake = $1",
+                    mapOf(Pair("$1", guild.asLong()))
+                ) { row, _ ->
+                    row["locale"] as String
+                }.firstOrNull() ?: "en_GB"
+            )
+        ).getString(key)
 }
 
 fun registerCommands(builder: CommandsBuilder.() -> Unit) {

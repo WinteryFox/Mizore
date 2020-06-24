@@ -1,13 +1,14 @@
 package bot.horo
 
-import bot.horo.command.CommandContext
+import bot.horo.command.*
 import bot.horo.command.commands
-import bot.horo.command.traverse
+import discord4j.common.util.Snowflake
 import discord4j.core.DiscordClient
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Presence
 import discord4j.core.event.domain.guild.GuildCreateEvent
+import discord4j.core.event.domain.guild.GuildDeleteEvent
 import discord4j.core.event.domain.lifecycle.ConnectEvent
 import discord4j.core.event.domain.lifecycle.DisconnectEvent
 import discord4j.core.event.domain.lifecycle.ReadyEvent
@@ -21,13 +22,13 @@ import discord4j.rest.util.Color
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.reactive.awaitFirstOrNull
-import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.reactive.*
 import kotlinx.coroutines.reactor.mono
+import org.jetbrains.annotations.PropertyKey
 import org.slf4j.LoggerFactory
 import java.lang.RuntimeException
 import java.lang.management.ManagementFactory
+import java.util.*
 import kotlin.concurrent.thread
 import kotlin.math.floor
 import kotlin.time.*
@@ -35,8 +36,16 @@ import kotlin.time.*
 @ExperimentalTime
 class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
+    private val oldGuilds = mutableSetOf<Snowflake>()
+    private val database = Database()
 
     init {
+        registerCommands {
+            help()
+            ping()
+            invite()
+        }
+
         DiscordClient.create(System.getenv("token"))
             .gateway()
             .setSharding(ShardingStrategy.recommended())
@@ -48,11 +57,12 @@ class Client {
                         dispatcher.on(ReadyEvent::class.java)
                             .asFlow()
                             .collect {
-                                logger.info("Shard #${it.shardInfo.index} is ready!")
+                                oldGuilds.addAll(it.guilds.map(ReadyEvent.Guild::getId))
                                 it.client.updatePresence(
                                     Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
                                     it.shardInfo.index
                                 ).awaitFirstOrNull()
+                                logger.info("Shard #${it.shardInfo.index} is ready!")
                             }
                     }
 
@@ -83,11 +93,11 @@ class Client {
                         dispatcher.on(ReconnectEvent::class.java)
                             .asFlow()
                             .collect {
-                                logger.info("Shard #${it.shardInfo.index} has reconnected")
                                 it.client.updatePresence(
                                     Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
                                     it.shardInfo.index
                                 ).awaitFirstOrNull()
+                                logger.info("Shard #${it.shardInfo.index} has reconnected")
                             }
                     }
 
@@ -95,10 +105,41 @@ class Client {
                         dispatcher.on(GuildCreateEvent::class.java)
                             .asFlow()
                             .collect {
-                                logger.info(
-                                    "Guild \"${it.guild.name}\" created, shard at ${it.client.guilds.count()
-                                        .awaitSingle()} guilds (${it.client.gatewayClientGroup.shardCount} total)"
-                                )
+                                if (!oldGuilds.contains(it.guild.id)) {
+                                    it.guild.systemChannel.awaitSingle()
+                                        .createMessage { message ->
+                                            message.setContent("Can't see this message? Enable embeds by turning on `Settings > Text & Images > Show website preview info from links pasted into chat`")
+                                                .setEmbed { embed ->
+                                                    embed.setTitle("Thanks for letting me in!")
+                                                        .setDescription("I'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
+                                                        .addField(
+                                                            "Quick start",
+                                                            "To get started type `.horohelp` to see a list of my commands and a short usage guide.",
+                                                            false
+                                                        )
+                                                        .addField(
+                                                            "Having issues or need help?",
+                                                            "If any issues, bugs or questions arise, feel free to join the [support server](https://discord.gg/6vJXZ8d) to report bugs, ask your questions or just hang out and chat.",
+                                                            false
+                                                        )
+                                                        .setColor(Color.PINK)
+                                                }
+                                        }
+                                        .awaitSingle()
+                                    oldGuilds.add(it.guild.id)
+                                    logger.info(
+                                        "Guild \"${it.guild.name}\" created (${it.client.guilds.count()
+                                            .awaitSingle()} guilds)"
+                                    )
+                                }
+                            }
+                    }
+
+                    launch(CoroutineName("GuildDeleteCoroutine")) {
+                        dispatcher.on(GuildDeleteEvent::class.java)
+                            .asFlow()
+                            .collect {
+                                oldGuilds.remove(it.guildId)
                             }
                     }
 
@@ -142,6 +183,7 @@ class Client {
                                     )
                                 )
                             }
+                            else -> logger.info("Unknown command; $input")
                         }
                         input = readLine()
                     }
@@ -220,17 +262,19 @@ class Client {
             command.dispatch.invoke(
                 CommandContext(
                     event,
-                    parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap()
+                    parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap(),
+                    database
                 )
             )
         } catch (exception: RuntimeException) {
-            logger.error("Command handler threw an exception", exception.cause!!)
+            logger.error("Command handler threw an exception", exception)
             channel.createEmbed { spec ->
                 spec
                     .setTitle("Well that didn't go as planned...")
                     .setDescription(
                         """
-                        An error occurred while processing your command; ${exception.cause!!.message}
+                        An error occurred while processing your command
+                        ```${exception.message}```
                         Try again later!
                         """.trimIndent()
                     )

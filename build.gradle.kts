@@ -10,6 +10,14 @@ buildscript {
 plugins {
     kotlin("jvm") version "1.3.72"
     id("com.github.johnrengelman.shadow") version "2.0.4"
+    idea
+}
+
+idea {
+    module {
+        isDownloadJavadoc = true
+        isDownloadSources = true
+    }
 }
 
 group = "bot.horo"
@@ -30,6 +38,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.0-SNAPSHOT")
+    implementation("io.r2dbc:r2dbc-postgresql:0.8.3.RELEASE")
+    implementation("io.r2dbc:r2dbc-pool:0.8.3.RELEASE")
 }
 
 tasks {

@@ -4,6 +4,7 @@
     <logger name="reactor" level="INFO"/>
     <logger name="org.reflections" level="INFO"/>
     <logger name="discord4j" level="INFO"/>
+    <logger name="i.r.p.client.ReactorNettyClient" level="INFO"/>
     <logger name="bot.horo" level="TRACE"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
