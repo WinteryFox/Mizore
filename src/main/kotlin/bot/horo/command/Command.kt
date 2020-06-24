@@ -11,11 +11,11 @@ import java.util.*
 internal val commands = mutableListOf<Command>()
 fun MutableList<Command>.traverse(input: String): Command? {
     var sequence = input.splitToSequence(" ")
-    var command = this.find { it.name == sequence.first() } ?: return null
+    var command = this.find { it.name == sequence.first() || it.aliases.contains(sequence.first()) } ?: return null
     sequence = sequence.drop(1)
 
     for (seq in sequence) {
-        command = command.children.find { it.name == seq } ?: return null
+        command = command.children.find { it.name == seq || it.aliases.contains(seq) } ?: return null
     }
 
     return command
@@ -23,6 +23,7 @@ fun MutableList<Command>.traverse(input: String): Command? {
 
 class Command(
     val name: String,
+    val aliases: Set<String>,
     val dispatch: suspend CommandContext.() -> Unit,
     val parameters: MutableList<String> = mutableListOf(),
     val botPermissions: PermissionSet = PermissionSet.of(Permission.SEND_MESSAGES),
@@ -39,11 +40,16 @@ class Command(
 }
 
 class CommandBuilder(private val name: String) {
+    private val aliases = mutableSetOf<String>()
     private lateinit var dispatch: suspend CommandContext.() -> Unit
     private val parameters = mutableListOf<String>()
     private val children = mutableListOf<Command>()
     private val botPermissions = PermissionSet.none()
     private val userPermissions = PermissionSet.none()
+
+    fun alias(alias: String) {
+        this.aliases.add(alias)
+    }
 
     fun dispatch(dispatch: suspend CommandContext.() -> Unit) {
         this.dispatch = dispatch
@@ -64,7 +70,7 @@ class CommandBuilder(private val name: String) {
 
     fun subcommand(name: String, dsl: CommandBuilder.() -> Unit) = children.add(CommandBuilder(name).apply(dsl).build())
 
-    fun build() = Command(name, dispatch, parameters, botPermissions, userPermissions, children)
+    fun build() = Command(name, aliases, dispatch, parameters, botPermissions, userPermissions, children)
 }
 
 object CommandsBuilder {
