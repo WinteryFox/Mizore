@@ -24,11 +24,9 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactive.*
 import kotlinx.coroutines.reactor.mono
-import org.jetbrains.annotations.PropertyKey
 import org.slf4j.LoggerFactory
 import java.lang.RuntimeException
 import java.lang.management.ManagementFactory
-import java.util.*
 import kotlin.concurrent.thread
 import kotlin.math.floor
 import kotlin.time.*
@@ -45,153 +43,154 @@ class Client {
             ping()
             invite()
         }
+    }
 
-        DiscordClient.create(System.getenv("token"))
-            .gateway()
-            .setSharding(ShardingStrategy.recommended())
-            .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
-            .setInitialStatus { Presence.doNotDisturb(Activity.playing("Loading... Please wait...")) }
-            .withEventDispatcher { dispatcher ->
-                mono(CoroutineName("EventDispatcherCoroutine")) {
-                    launch(CoroutineName("ReadyCoroutine")) {
-                        dispatcher.on(ReadyEvent::class.java)
-                            .asFlow()
-                            .collect {
-                                oldGuilds.addAll(it.guilds.map(ReadyEvent.Guild::getId))
-                                it.client.updatePresence(
-                                    Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
-                                    it.shardInfo.index
-                                ).awaitFirstOrNull()
-                                logger.info("Shard #${it.shardInfo.index} is ready!")
-                            }
-                    }
-
-                    launch(CoroutineName("ConnectCoroutine")) {
-                        dispatcher.on(ConnectEvent::class.java)
-                            .asFlow()
-                            .collect {
-                                logger.info("Shard #${it.shardInfo.index} has connected")
-                            }
-                    }
-
-                    launch(CoroutineName("DisconnectCoroutine")) {
-                        dispatcher.on(DisconnectEvent::class.java)
-                            .asFlow()
-                            .collect {
-                                val message =
-                                    "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${it.status.reason.orElse(
-                                        "No reason specified"
-                                    )})"
-                                if (it.cause.isPresent)
-                                    logger.error(message, it.cause.get())
-                                else
-                                    logger.error(message)
-                            }
-                    }
-
-                    launch(CoroutineName("ReconnectCoroutine")) {
-                        dispatcher.on(ReconnectEvent::class.java)
-                            .asFlow()
-                            .collect {
-                                it.client.updatePresence(
-                                    Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
-                                    it.shardInfo.index
-                                ).awaitFirstOrNull()
-                                logger.info("Shard #${it.shardInfo.index} has reconnected")
-                            }
-                    }
-
-                    launch(CoroutineName("GuildCreateCoroutine")) {
-                        dispatcher.on(GuildCreateEvent::class.java)
-                            .asFlow()
-                            .collect {
-                                if (!oldGuilds.contains(it.guild.id)) {
-                                    it.guild.systemChannel.awaitSingle()
-                                        .createMessage { message ->
-                                            message.setContent("Can't see this message? Enable embeds by turning on `Settings > Text & Images > Show website preview info from links pasted into chat`")
-                                                .setEmbed { embed ->
-                                                    embed.setTitle("Thanks for letting me in!")
-                                                        .setDescription("I'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
-                                                        .addField(
-                                                            "Quick start",
-                                                            "To get started type `.horohelp` to see a list of my commands and a short usage guide.",
-                                                            false
-                                                        )
-                                                        .addField(
-                                                            "Having issues or need help?",
-                                                            "If any issues, bugs or questions arise, feel free to join the [support server](https://discord.gg/6vJXZ8d) to report bugs, ask your questions or just hang out and chat.",
-                                                            false
-                                                        )
-                                                        .setColor(Color.PINK)
-                                                }
-                                        }
-                                        .awaitSingle()
-                                    oldGuilds.add(it.guild.id)
-                                    logger.info(
-                                        "Guild \"${it.guild.name}\" created (${it.client.guilds.count()
-                                            .awaitSingle()} guilds)"
-                                    )
+    fun login() {
+        thread(name = "Client") {
+            DiscordClient.create(System.getenv("token"))
+                .gateway()
+                .setSharding(ShardingStrategy.recommended())
+                .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
+                .setInitialStatus { Presence.doNotDisturb(Activity.playing("Loading... Please wait...")) }
+                .withEventDispatcher { dispatcher ->
+                    mono(CoroutineName("EventDispatcherCoroutine")) {
+                        launch(CoroutineName("ReadyCoroutine")) {
+                            dispatcher.on(ReadyEvent::class.java)
+                                .asFlow()
+                                .collect {
+                                    oldGuilds.addAll(it.guilds.map(ReadyEvent.Guild::getId))
+                                    it.client.updatePresence(
+                                        Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
+                                        it.shardInfo.index
+                                    ).awaitFirstOrNull()
+                                    logger.info("Shard #${it.shardInfo.index} is ready!")
                                 }
-                            }
-                    }
-
-                    launch(CoroutineName("GuildDeleteCoroutine")) {
-                        dispatcher.on(GuildDeleteEvent::class.java)
-                            .asFlow()
-                            .collect {
-                                oldGuilds.remove(it.guildId)
-                            }
-                    }
-
-                    launch(CoroutineName("MessageCreateCoroutine")) {
-                        dispatcher.on(MessageCreateEvent::class.java)
-                            .asFlow()
-                            .filter {
-                                it.member.isPresent &&
-                                        !it.member.get().isBot &&
-                                        it.message.channel.awaitSingle() is GuildMessageChannel &&
-                                        it.message.content.isNotBlank() &&
-                                        it.message.content.startsWith(".horo")
-                            }
-                            .collect { event ->
-                                launch(CoroutineName("CommandCoroutine")) {
-                                    handleMessage(event)
-                                }
-                            }
-                    }
-                }
-            }
-            .login()
-            .doOnNext { client ->
-                thread(name = "ConsoleCommand") {
-                    var input = readLine()
-                    while (input != null) {
-                        when (input.toLowerCase()) {
-                            "count" -> logger.info(
-                                "Currently have ${client.guilds.count().block()} guilds and ${client.users.count()
-                                    .block()} users"
-                            )
-                            "uptime" -> {
-                                val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
-                                logger.info(
-                                    "Client has been online for %s weeks %s days %s hours %s minutes %s seconds".format(
-                                        floor(uptime.inDays / 7).toInt(),
-                                        floor(uptime.inDays).toInt() % 7,
-                                        floor(uptime.inHours).toInt() % 24,
-                                        floor(uptime.inMinutes).toInt() % 60,
-                                        floor(uptime.inSeconds).toInt() % 60
-                                    )
-                                )
-                            }
-                            else -> logger.info("Unknown command; $input")
                         }
-                        input = readLine()
+
+                        launch(CoroutineName("ConnectCoroutine")) {
+                            dispatcher.on(ConnectEvent::class.java)
+                                .asFlow()
+                                .collect {
+                                    logger.info("Shard #${it.shardInfo.index} has connected")
+                                }
+                        }
+
+                        launch(CoroutineName("DisconnectCoroutine")) {
+                            dispatcher.on(DisconnectEvent::class.java)
+                                .asFlow()
+                                .collect {
+                                    val message =
+                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${it.status.reason.orElse(
+                                            "No reason specified"
+                                        )})"
+                                    if (it.cause.isPresent)
+                                        logger.error(message, it.cause.get())
+                                    else
+                                        logger.error(message)
+                                }
+                        }
+
+                        launch(CoroutineName("ReconnectCoroutine")) {
+                            dispatcher.on(ReconnectEvent::class.java)
+                                .asFlow()
+                                .collect {
+                                    it.client.updatePresence(
+                                        Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
+                                        it.shardInfo.index
+                                    ).awaitFirstOrNull()
+                                    logger.info("Shard #${it.shardInfo.index} has reconnected")
+                                }
+                        }
+
+                        launch(CoroutineName("GuildCreateCoroutine")) {
+                            dispatcher.on(GuildCreateEvent::class.java)
+                                .asFlow()
+                                .collect {
+                                    if (!oldGuilds.contains(it.guild.id)) {
+                                        it.guild.systemChannel.awaitSingle()
+                                            .createMessage { message ->
+                                                message.setContent("Can't see this message? Enable embeds by turning on `Settings > Text & Images > Show website preview info from links pasted into chat`")
+                                                    .setEmbed { embed ->
+                                                        embed.setTitle("Thanks for letting me in!")
+                                                            .setDescription("I'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
+                                                            .addField(
+                                                                "Quick start",
+                                                                "To get started type `.horohelp` to see a list of my commands and a short usage guide.",
+                                                                false
+                                                            )
+                                                            .addField(
+                                                                "Having issues or need help?",
+                                                                "If any issues, bugs or questions arise, feel free to join the [support server](https://discord.gg/6vJXZ8d) to report bugs, ask your questions or just hang out and chat.",
+                                                                false
+                                                            )
+                                                            .setColor(Color.PINK)
+                                                    }
+                                            }
+                                            .awaitSingle()
+                                        oldGuilds.add(it.guild.id)
+                                        logger.info(
+                                            "Guild \"${it.guild.name}\" created (${it.client.guilds.count()
+                                                .awaitSingle()} guilds)"
+                                        )
+                                    }
+                                }
+                        }
+
+                        launch(CoroutineName("GuildDeleteCoroutine")) {
+                            dispatcher.on(GuildDeleteEvent::class.java)
+                                .asFlow()
+                                .collect {
+                                    oldGuilds.remove(it.guildId)
+                                }
+                        }
+
+                        launch(CoroutineName("MessageCreateCoroutine")) {
+                            dispatcher.on(MessageCreateEvent::class.java)
+                                .asFlow()
+                                .filter {
+                                    it.member.isPresent &&
+                                            !it.member.get().isBot &&
+                                            it.message.channel.awaitSingle() is GuildMessageChannel &&
+                                            it.message.content.isNotBlank() &&
+                                            it.message.content.startsWith(".horo")
+                                }
+                                .collect { event ->
+                                    launch(CoroutineName("CommandCoroutine")) {
+                                        handleMessage(event)
+                                    }
+                                }
+                        }
                     }
                 }
-            }
-            .block()!!
-            .onDisconnect()
-            .block()
+                .login()
+                .doOnNext { client ->
+                    thread(name = "ConsoleCommand") {
+                        var input = readLine()
+                        while (input != null) {
+                            when (input.toLowerCase()) {
+                                "count" -> logger.info("Currently have ${client.guilds.count().block()} guilds")
+                                "uptime" -> {
+                                    val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
+                                    logger.info(
+                                        "Client has been online for %s weeks %s days %s hours %s minutes %s seconds".format(
+                                            floor(uptime.inDays / 7).toInt(),
+                                            floor(uptime.inDays).toInt() % 7,
+                                            floor(uptime.inHours).toInt() % 24,
+                                            floor(uptime.inMinutes).toInt() % 60,
+                                            floor(uptime.inSeconds).toInt() % 60
+                                        )
+                                    )
+                                }
+                                else -> logger.info("Unknown command; $input")
+                            }
+                            input = readLine()
+                        }
+                    }
+                }
+                .block()!!
+                .onDisconnect()
+                .block()
+        }
     }
 
     private suspend fun handleMessage(event: MessageCreateEvent) {

@@ -4,5 +4,5 @@ import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 fun main() {
-    Client()
+    Client().login()
 }
