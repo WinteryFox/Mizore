@@ -7,10 +7,8 @@ fun CommandsBuilder.ping() {
         dispatch {
             this.event.message.channel.awaitSingle()
                 .createMessage(
-                    "Pong! My ping is %s milliseconds".format(
-                        this.event.client.getGatewayClient(this.event.shardInfo.index)
-                            .get().responseTime.toMillis()
-                    )
+                    "Pong! My ping is ${event.client.getGatewayClient(this.event.shardInfo.index)
+                        .get().responseTime.toMillis()} milliseconds"
                 )
                 .awaitSingle()
         }

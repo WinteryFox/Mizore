@@ -6,7 +6,7 @@ import kotlinx.coroutines.reactive.awaitSingle
 fun CommandsBuilder.help() {
     command("help") {
         dispatch {
-            val content = translate("cant-see-message", event.guildId.get())
+            val content = translate("cant-see-message", event.member.get())
 
             event.message.channel.awaitSingle()
                 .createMessage {

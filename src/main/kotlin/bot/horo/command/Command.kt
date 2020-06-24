@@ -1,7 +1,7 @@
 package bot.horo.command
 
 import bot.horo.Database
-import discord4j.common.util.Snowflake
+import discord4j.core.`object`.entity.Member
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.rest.util.Permission
 import discord4j.rest.util.PermissionSet
@@ -90,13 +90,20 @@ data class CommandContext(
         return parameters.getValue(name)
     }
 
-    suspend fun translate(@PropertyKey(resourceBundle = "localization") key: String, guild: Snowflake): String =
+    suspend fun translate(@PropertyKey(resourceBundle = "localization") key: String, member: Member): String =
         ResourceBundle.getBundle(
             "localization",
             Locale(
                 database.query(
-                    "SELECT * FROM guilds WHERE snowflake = $1",
-                    mapOf(Pair("$1", guild.asLong()))
+                    """
+SELECT CASE
+           WHEN (SELECT locale FROM guilds WHERE snowflake = $1) IS NULL THEN
+                   (SELECT locale FROM users WHERE snowflake = $2)
+           ELSE
+                   (SELECT locale FROM guilds WHERE snowflake = $1)
+           END
+                    """,
+                    mapOf(Pair("$1", member.guildId.asLong()), Pair("$2", member.id.asLong()))
                 ) { row, _ ->
                     row["locale"] as String
                 }.firstOrNull() ?: "en_GB"
