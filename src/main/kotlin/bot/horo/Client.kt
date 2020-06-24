@@ -164,7 +164,7 @@ class Client {
                 }
                 .login()
                 .doOnNext { client ->
-                    thread(name = "ConsoleCommand") {
+                    thread(name = "ConsoleCommand", isDaemon = true) {
                         var input = readLine()
                         while (input != null) {
                             when (input.toLowerCase()) {
