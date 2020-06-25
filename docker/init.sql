@@ -1,9 +1,18 @@
-CREATE TABLE guilds(
+CREATE TABLE guilds
+(
     snowflake BIGINT PRIMARY KEY,
-    locale VARCHAR(5) DEFAULT null
+    locale    VARCHAR(5) DEFAULT null
 );
 
-CREATE TABLE users(
+CREATE TABLE prefixes
+(
+    snowflake BIGINT,
+    prefix    VARCHAR(5),
+    PRIMARY KEY (snowflake, prefix)
+);
+
+CREATE TABLE users
+(
     snowflake BIGINT PRIMARY KEY,
-    locale VARCHAR(5) NOT NULL DEFAULT 'en_GB'
+    locale    VARCHAR(5) NOT NULL DEFAULT 'en_GB'
 );

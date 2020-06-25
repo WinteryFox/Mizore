@@ -25,7 +25,7 @@ class Command(
     val name: String,
     val aliases: Set<String>,
     val dispatch: suspend CommandContext.() -> Unit,
-    val parameters: MutableList<String> = mutableListOf(),
+    val parameters: MutableMap<String, Boolean> = mutableMapOf(),
     val botPermissions: PermissionSet = PermissionSet.of(Permission.SEND_MESSAGES),
     val userPermissions: PermissionSet = PermissionSet.of(Permission.SEND_MESSAGES),
     val children: MutableList<Command> = mutableListOf()
@@ -42,7 +42,7 @@ class Command(
 class CommandBuilder(private val name: String) {
     private val aliases = mutableSetOf<String>()
     private lateinit var dispatch: suspend CommandContext.() -> Unit
-    private val parameters = mutableListOf<String>()
+    private val parameters = mutableMapOf<String, Boolean>()
     private val children = mutableListOf<Command>()
     private val botPermissions = PermissionSet.none()
     private val userPermissions = PermissionSet.none()
@@ -55,9 +55,9 @@ class CommandBuilder(private val name: String) {
         this.dispatch = dispatch
     }
 
-    fun parameter(name: String): Parameter {
-        this.parameters.add(name)
-        return Parameter(name)
+    fun parameter(name: String, required: Boolean): Parameter {
+        this.parameters[name] = required
+        return Parameter(name, required)
     }
 
     fun botPermissions(vararg permission: Permission) {
@@ -79,7 +79,7 @@ object CommandsBuilder {
     }
 }
 
-data class Parameter(val name: String)
+data class Parameter(val name: String, val required: Boolean)
 
 data class CommandContext(
     val event: MessageCreateEvent,
@@ -105,8 +105,8 @@ SELECT CASE
                     """,
                     mapOf(Pair("$1", member.guildId.asLong()), Pair("$2", member.id.asLong()))
                 ) { row, _ ->
-                    row["locale"] as String
-                }.firstOrNull() ?: "en_GB"
+                    row["locale"] as String? ?: "en_GB"
+                }.single()
             )
         ).getString(key)
 }

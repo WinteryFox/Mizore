@@ -4,7 +4,9 @@ import io.r2dbc.pool.ConnectionPool
 import io.r2dbc.pool.ConnectionPoolConfiguration
 import io.r2dbc.postgresql.PostgresqlConnectionConfiguration
 import io.r2dbc.postgresql.PostgresqlConnectionFactory
-import io.r2dbc.spi.*
+import io.r2dbc.spi.Closeable
+import io.r2dbc.spi.Row
+import io.r2dbc.spi.RowMetadata
 import kotlinx.coroutines.reactive.awaitSingle
 import org.intellij.lang.annotations.Language
 import reactor.kotlin.core.publisher.toFlux
@@ -27,9 +29,29 @@ class Database {
             .build()
     )
 
+    suspend fun execute(
+        @Language("PostgreSQL") sql: String,
+        binds: Map<String, Any> = emptyMap()
+    ): Int =
+        pool.create()
+            .awaitSingle()
+            .use { connection ->
+                connection.createStatement(sql)
+                    .let { statement ->
+                        binds.forEach {
+                            statement.bind(it.key, it.value)
+                        }
+                        return@let statement
+                    }
+                    .execute()
+                    .awaitSingle()
+                    .rowsUpdated
+                    .awaitSingle()
+            }
+
     suspend fun <T> query(
         @Language("PostgreSQL") sql: String,
-        binds: Map<String, Any>,
+        binds: Map<String, Any> = emptyMap(),
         consumer: (Row, RowMetadata) -> T
     ): List<T> =
         pool.create()
@@ -46,7 +68,7 @@ class Database {
                     .toFlux()
                     .flatMap { result ->
                         result.map { t, u ->
-                            consumer.invoke(t, u)
+                            consumer(t, u)
                         }
                     }
                     .collectList()

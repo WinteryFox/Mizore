@@ -1,7 +1,7 @@
 package bot.horo
 
 import bot.horo.command.*
-import bot.horo.command.commands
+import bot.horo.data.getSettings
 import discord4j.common.util.Snowflake
 import discord4j.core.DiscordClient
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
@@ -22,14 +22,17 @@ import discord4j.rest.util.Color
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.reactive.*
+import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.reactive.awaitFirstOrNull
+import kotlinx.coroutines.reactive.awaitLast
+import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
-import java.lang.RuntimeException
 import java.lang.management.ManagementFactory
 import kotlin.concurrent.thread
 import kotlin.math.floor
-import kotlin.time.*
+import kotlin.time.ExperimentalTime
+import kotlin.time.milliseconds
 
 @ExperimentalTime
 class Client {
@@ -42,6 +45,7 @@ class Client {
             help()
             ping()
             invite()
+            prefix()
         }
     }
 
@@ -80,13 +84,13 @@ class Client {
                                 .asFlow()
                                 .collect {
                                     val message =
-                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${it.status.reason.orElse(
-                                            "No reason specified"
-                                        )})"
+                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${if (it.status.reason.isPresent && it.status.reason.get()
+                                                .isNotBlank()
+                                        ) it.status.reason.get() else "No reason specified"})"
                                     if (it.cause.isPresent)
-                                        logger.error(message, it.cause.get())
+                                        logger.info(message, it.cause.get())
                                     else
-                                        logger.error(message)
+                                        logger.info(message)
                                 }
                         }
 
@@ -120,7 +124,7 @@ class Client {
                                                             )
                                                             .addField(
                                                                 "Having issues or need help?",
-                                                                "If any issues, bugs or questions arise, feel free to join the [support server](https://discord.gg/6vJXZ8d) to report bugs, ask your questions or just hang out and chat.",
+                                                                "If any issues, bugs or questions arise, feel free to join the [support server]($GUILD_INVITE) to report bugs, ask your questions or just hang out and chat.",
                                                                 false
                                                             )
                                                             .setColor(Color.PINK)
@@ -147,16 +151,40 @@ class Client {
                         launch(CoroutineName("MessageCreateCoroutine")) {
                             dispatcher.on(MessageCreateEvent::class.java)
                                 .asFlow()
-                                .filter {
-                                    it.member.isPresent &&
-                                            !it.member.get().isBot &&
-                                            it.message.channel.awaitSingle() is GuildMessageChannel &&
-                                            it.message.content.isNotBlank() &&
-                                            it.message.content.startsWith(".horo")
+                                .filter { event ->
+                                    event.member.isPresent &&
+                                            !event.member.get().isBot &&
+                                            event.message.channel.awaitSingle() is GuildMessageChannel &&
+                                            event.message.content.isNotBlank() &&
+                                            event.message.guild.awaitSingle().getSettings(database).prefixes.any {
+                                                event.message.content.startsWith(
+                                                    it
+                                                )
+                                            }
                                 }
                                 .collect { event ->
                                     launch(CoroutineName("CommandCoroutine")) {
-                                        handleMessage(event)
+                                        event.message.channel.awaitSingle().typeUntil(
+                                            mono {
+                                                try {
+                                                    handleMessage(event)
+                                                } catch (exception: RuntimeException) {
+                                                    logger.error("Command handler threw an exception", exception)
+                                                    event.message.channel.awaitSingle().createEmbed { spec ->
+                                                        spec
+                                                            .setTitle("Well that didn't go as planned...")
+                                                            .setDescription(
+                                                                """
+                                                                An error occurred while processing your command
+                                                                ```${exception.message}```
+                                                                Try again later!
+                                                                """.trimIndent()
+                                                            )
+                                                            .setColor(Color.RED)
+                                                    }.awaitSingle()
+                                                }
+                                            }
+                                        ).awaitLast()
                                     }
                                 }
                         }
@@ -168,6 +196,7 @@ class Client {
                         var input = readLine()
                         while (input != null) {
                             when (input.toLowerCase()) {
+                                "stop" -> client.logout().block()
                                 "count" -> logger.info("Currently have ${client.guilds.count().block()} guilds")
                                 "uptime" -> {
                                     val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
@@ -193,8 +222,15 @@ class Client {
         }
     }
 
-    private suspend fun handleMessage(event: MessageCreateEvent) {
-        val command = commands.traverse(event.message.content.removePrefix(".horo").substringBefore(" --"))
+    private suspend inline fun handleMessage(event: MessageCreateEvent) {
+        val command = commands.traverse(
+            event.message.content.removePrefix(
+                event.guild.awaitSingle().getSettings(database).prefixes
+                    .filter { event.message.content.startsWith(it) }
+                    .maxBy { it.length }!!
+            )
+                .substringBefore(" --")
+        )
         if (command == null) {
             event.message.restChannel.createMessage(
                 EmbedData.builder()
@@ -242,8 +278,8 @@ class Client {
         val parametersSupplied = "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content).toList()
 
         if (command.parameters.size != parametersSupplied.size ||
-            !command.parameters.all { parameter ->
-                parametersSupplied.map { it.groupValues[1] }.contains(parameter)
+            !command.parameters.filter { it.value }.all { parameter ->
+                parametersSupplied.map { it.groupValues[1] }.contains(parameter.key)
             }
         ) {
             event.message.restChannel.createMessage(
@@ -257,28 +293,12 @@ class Client {
         }
 
         logger.debug("Executing command ${command.name}")
-        try {
-            command.dispatch.invoke(
-                CommandContext(
-                    event,
-                    parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap(),
-                    database
-                )
+        command.dispatch.invoke(
+            CommandContext(
+                event,
+                parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap(),
+                database
             )
-        } catch (exception: RuntimeException) {
-            logger.error("Command handler threw an exception", exception)
-            channel.createEmbed { spec ->
-                spec
-                    .setTitle("Well that didn't go as planned...")
-                    .setDescription(
-                        """
-                        An error occurred while processing your command
-                        ```${exception.message}```
-                        Try again later!
-                        """.trimIndent()
-                    )
-                    .setColor(Color.RED)
-            }.awaitSingle()
-        }
+        )
     }
 }

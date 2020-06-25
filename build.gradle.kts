@@ -40,14 +40,15 @@ dependencies {
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.0-SNAPSHOT")
     implementation("io.r2dbc:r2dbc-postgresql:0.8.3.RELEASE")
     implementation("io.r2dbc:r2dbc-pool:0.8.3.RELEASE")
+    implementation("io.projectreactor:reactor-tools")
 }
 
 tasks {
     compileKotlin {
-        kotlinOptions.jvmTarget = "1.8"
+        kotlinOptions.jvmTarget = "13"
     }
     compileTestKotlin {
-        kotlinOptions.jvmTarget = "1.8"
+        kotlinOptions.jvmTarget = "13"
     }
     shadowJar {
         archiveBaseName.set("Horo")
