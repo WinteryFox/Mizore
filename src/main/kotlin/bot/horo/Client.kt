@@ -42,6 +42,7 @@ class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
     private val oldGuilds = mutableSetOf<Snowflake>()
     private val database = Database()
+    private val localization = Localization(database)
 
     init {
         registerCommands {
@@ -313,7 +314,8 @@ class Client {
             CommandContext(
                 event,
                 parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap(),
-                database
+                database,
+                localization
             )
         )
     }

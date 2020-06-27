@@ -8,8 +8,8 @@ import kotlinx.coroutines.reactive.awaitSingle
 fun CommandsBuilder.prefix() {
     command("prefix") {
         dispatch {
-            val title = translate("prefix.title", this.event.member.get())
-            val footer = translate("prefix.footer", this.event.member.get())
+            val title = localization.translate("prefix.title", this.event.member.get())
+            val footer = localization.translate("prefix.footer", this.event.member.get())
             val description =
                 this.event.guild.awaitSingle().getSettings(this.database).prefixes.joinToString { "`$it`" }
 
@@ -37,7 +37,7 @@ fun CommandsBuilder.prefix() {
                 )
                     this.event.message.channel.awaitSingle()
                         .createMessage(
-                            translate(
+                            localization.translate(
                                 "prefix.added",
                                 this.event.member.get()
                             ).format(this.parameters["prefix"])
@@ -46,7 +46,7 @@ fun CommandsBuilder.prefix() {
                 else
                     this.event.message.channel.awaitSingle()
                         .createMessage(
-                            translate(
+                            localization.translate(
                                 "prefix.duplicate",
                                 this.event.member.get()
                             ).format(this.parameters["prefix"])
@@ -69,7 +69,7 @@ fun CommandsBuilder.prefix() {
                 )
                     this.event.message.channel.awaitSingle()
                         .createMessage(
-                            translate(
+                            localization.translate(
                                 "prefix.removed",
                                 this.event.member.get()
                             ).format(this.parameters["prefix"])
@@ -78,7 +78,7 @@ fun CommandsBuilder.prefix() {
                 else
                     this.event.message.channel.awaitSingle()
                         .createMessage(
-                            translate(
+                            localization.translate(
                                 "prefix.unknown",
                                 this.event.member.get()
                             ).format(this.parameters["prefix"])

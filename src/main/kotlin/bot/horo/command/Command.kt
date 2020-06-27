@@ -1,15 +1,13 @@
 package bot.horo.command
 
 import bot.horo.GUILD_INVITE
+import bot.horo.Localization
 import bot.horo.data.Database
-import discord4j.core.`object`.entity.Member
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.core.spec.MessageCreateSpec
 import discord4j.rest.util.Color
 import discord4j.rest.util.Permission
 import discord4j.rest.util.PermissionSet
-import org.jetbrains.annotations.PropertyKey
-import java.util.*
 
 internal val commands = mutableListOf<Command>()
 fun MutableList<Command>.traverse(input: String): Command? {
@@ -87,42 +85,11 @@ data class Parameter(val name: String, val required: Boolean)
 data class CommandContext(
     val event: MessageCreateEvent,
     val parameters: Map<String, String>,
-    val database: Database
+    val database: Database,
+    val localization: Localization
 ) {
     fun Parameter.get(): String {
         return parameters.getValue(name)
-    }
-
-    suspend fun translate(@PropertyKey(resourceBundle = "localization") key: String, member: Member): String =
-        ResourceBundle.getBundle(
-            "localization",
-            Locale.forLanguageTag(
-                database.query(
-                    """
-SELECT CASE
-           WHEN (SELECT locale FROM guilds WHERE snowflake = $1) IS NULL THEN
-                   (SELECT locale FROM users WHERE snowflake = $2)
-           ELSE
-                   (SELECT locale FROM guilds WHERE snowflake = $1)
-           END
-                    """,
-                    mapOf(Pair("$1", member.guildId), Pair("$2", member.id))
-                ) { row, _ ->
-                    row["locale"] as String? ?: "en-GB"
-                }.single()
-            )
-        ).getString(key)
-
-    fun getAvailableLocales(): Set<Locale> {
-        val bundles = mutableSetOf<ResourceBundle>()
-
-        for (locale in Locale.getAvailableLocales())
-            try {
-                bundles.add(ResourceBundle.getBundle("localization", locale))
-            } catch (_: MissingResourceException) {
-            }
-
-        return bundles.map { it.locale }.toSet()
     }
 }
 

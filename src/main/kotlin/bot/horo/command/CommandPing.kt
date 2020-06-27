@@ -7,7 +7,7 @@ fun CommandsBuilder.ping() {
         dispatch {
             this.event.message.channel.awaitSingle()
                 .createMessage(
-                    translate("ping", this.event.member.get()).format(
+                    localization.translate("ping", this.event.member.get()).format(
                         event.client.getGatewayClient(this.event.shardInfo.index).get().responseTime.toMillis()
                     )
                 )
