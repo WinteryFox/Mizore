@@ -1,6 +1,5 @@
 package bot.horo.data
 
-import bot.horo.Database
 import discord4j.common.util.Snowflake
 import discord4j.core.`object`.entity.User
 import java.util.*
@@ -13,10 +12,10 @@ data class UserSettings(
 suspend fun User.getSettings(database: Database) =
     database.query(
         "SELECT * FROM users WHERE snowflake = $1",
-        mapOf(Pair("$1", this.id.asLong()))
+        mapOf(Pair("$1", this.id))
     ) { row, _ ->
         UserSettings(
             id,
-            Locale(row["locale"] as String)
+            Locale.forLanguageTag(row["locale"] as String)
         )
-    }.single()
+    }.getOrElse(0) { UserSettings(id, Locale.forLanguageTag("en-GB")) }

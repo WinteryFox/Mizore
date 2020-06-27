@@ -1,8 +1,11 @@
 package bot.horo.command
 
-import bot.horo.Database
+import bot.horo.GUILD_INVITE
+import bot.horo.data.Database
 import discord4j.core.`object`.entity.Member
 import discord4j.core.event.domain.message.MessageCreateEvent
+import discord4j.core.spec.MessageCreateSpec
+import discord4j.rest.util.Color
 import discord4j.rest.util.Permission
 import discord4j.rest.util.PermissionSet
 import org.jetbrains.annotations.PropertyKey
@@ -93,7 +96,7 @@ data class CommandContext(
     suspend fun translate(@PropertyKey(resourceBundle = "localization") key: String, member: Member): String =
         ResourceBundle.getBundle(
             "localization",
-            Locale(
+            Locale.forLanguageTag(
                 database.query(
                     """
 SELECT CASE
@@ -103,14 +106,45 @@ SELECT CASE
                    (SELECT locale FROM guilds WHERE snowflake = $1)
            END
                     """,
-                    mapOf(Pair("$1", member.guildId.asLong()), Pair("$2", member.id.asLong()))
+                    mapOf(Pair("$1", member.guildId), Pair("$2", member.id))
                 ) { row, _ ->
-                    row["locale"] as String? ?: "en_GB"
+                    row["locale"] as String? ?: "en-GB"
                 }.single()
             )
         ).getString(key)
+
+    fun getAvailableLocales(): Set<Locale> {
+        val bundles = mutableSetOf<ResourceBundle>()
+
+        for (locale in Locale.getAvailableLocales())
+            try {
+                bundles.add(ResourceBundle.getBundle("localization", locale))
+            } catch (_: MissingResourceException) {
+            }
+
+        return bundles.map { it.locale }.toSet()
+    }
 }
 
 fun registerCommands(builder: CommandsBuilder.() -> Unit) {
     CommandsBuilder.apply(builder)
 }
+
+val MessageCreateSpec.welcomeEmbed
+    get(): MessageCreateSpec =
+        this.setContent("Can't see this message? Enable embeds by turning on `Settings > Text & Images > Show website preview info from links pasted into chat`")
+            .setEmbed { embed ->
+                embed.setTitle("Thanks for letting me in!")
+                    .setDescription("I'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
+                    .addField(
+                        "Quick start",
+                        "To get started type `.horohelp` to see a list of my commands and a short usage guide.",
+                        false
+                    )
+                    .addField(
+                        "Having issues or need help?",
+                        "If any issues, bugs or questions arise, feel free to join the [support server]($GUILD_INVITE) to report bugs, ask your questions or just hang out and chat.",
+                        false
+                    )
+                    .setColor(Color.PINK)
+            }

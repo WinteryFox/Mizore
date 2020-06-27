@@ -30,7 +30,7 @@ fun CommandsBuilder.prefix() {
                 if (this.database.execute(
                         "INSERT INTO prefixes (snowflake, prefix) VALUES ($1, $2) ON CONFLICT DO NOTHING",
                         mapOf(
-                            Pair("$1", this.event.guildId.get().asLong()),
+                            Pair("$1", this.event.guildId.get()),
                             Pair("$2", this.parameters["prefix"]!!)
                         )
                     ) == 1
@@ -62,7 +62,7 @@ fun CommandsBuilder.prefix() {
                 if (this.database.execute(
                         "DELETE FROM prefixes WHERE snowflake = $1 AND prefix = $2",
                         mapOf(
-                            Pair("$1", this.event.guildId.get().asLong()),
+                            Pair("$1", this.event.guildId.get()),
                             Pair("$2", this.parameters["prefix"]!!)
                         )
                     ) == 1

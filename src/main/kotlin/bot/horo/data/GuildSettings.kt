@@ -1,9 +1,12 @@
 package bot.horo.data
 
-import bot.horo.Database
 import bot.horo.PREFIX
 import discord4j.common.util.Snowflake
 import discord4j.core.`object`.entity.Guild
+import discord4j.core.`object`.entity.channel.GuildMessageChannel
+import discord4j.core.util.OrderUtil
+import discord4j.rest.util.Permission
+import kotlinx.coroutines.reactive.awaitSingle
 import java.util.*
 
 data class GuildSettings(
@@ -21,11 +24,27 @@ FROM guilds
 WHERE guilds.snowflake = $1
 GROUP BY guilds.snowflake
         """,
-        mapOf(Pair("$1", this.id.asLong()))
+        mapOf(Pair("$1", this.id))
     ) { row, _ ->
         GuildSettings(
             id,
             (row["prefixes"] as Array<String>).toSet().plus(PREFIX),
-            if (row["locale"] as String? == null) null else Locale(row["locale"] as String)
+            if (row["locale"] as String? == null) null else Locale.forLanguageTag(row["locale"] as String)
         )
-    }.single()
+    }.getOrElse(0) { GuildSettings(id, setOf(PREFIX), Locale.forLanguageTag("en-GB")) }
+
+suspend fun Guild.firstChannel(): GuildMessageChannel? =
+    this.channels
+        .transform { OrderUtil.orderGuildChannels(it) }
+        .ofType(GuildMessageChannel::class.java)
+        .collectSortedList()
+        .awaitSingle()
+        .filter { channel ->
+            channel is GuildMessageChannel &&
+                    channel.getEffectivePermissions(this.client.selfId)
+                        .awaitSingle()
+                        .containsAll(setOf(Permission.SEND_MESSAGES, Permission.VIEW_CHANNEL))
+        }
+        .minBy { channel ->
+            channel.position.awaitSingle()
+        }

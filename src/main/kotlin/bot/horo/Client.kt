@@ -1,6 +1,8 @@
 package bot.horo
 
 import bot.horo.command.*
+import bot.horo.data.Database
+import bot.horo.data.firstChannel
 import bot.horo.data.getSettings
 import discord4j.common.util.Snowflake
 import discord4j.core.DiscordClient
@@ -19,6 +21,7 @@ import discord4j.discordjson.json.EmbedData
 import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import discord4j.rest.util.Color
+import discord4j.rest.util.Permission
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -46,6 +49,7 @@ class Client {
             ping()
             invite()
             prefix()
+            language()
         }
     }
 
@@ -61,13 +65,35 @@ class Client {
                         launch(CoroutineName("ReadyCoroutine")) {
                             dispatcher.on(ReadyEvent::class.java)
                                 .asFlow()
-                                .collect {
-                                    oldGuilds.addAll(it.guilds.map(ReadyEvent.Guild::getId))
-                                    it.client.updatePresence(
-                                        Presence.online(Activity.listening(".horohelp for help | Shard #${it.shardInfo.index}")),
-                                        it.shardInfo.index
+                                .collect { event ->
+                                    oldGuilds.addAll(event.guilds.map(ReadyEvent.Guild::getId))
+
+                                    database.batch({ batch ->
+                                        oldGuilds.forEach {
+                                            batch.add(
+                                                """
+                                                INSERT INTO guilds (snowflake)
+                                                VALUES (${it.asString()})
+                                                ON CONFLICT DO NOTHING
+                                                RETURNING snowflake
+                                                """
+                                            )
+                                        }
+                                    }) { row, _ ->
+                                        Snowflake.of(row["snowflake"] as Long)
+                                    }.map { snowflake ->
+                                        event.client.getGuildById(snowflake)
+                                            .awaitSingle()
+                                            .firstChannel()
+                                            ?.createMessage { spec -> spec.welcomeEmbed }
+                                            ?.awaitSingle()
+                                    }
+
+                                    event.client.updatePresence(
+                                        Presence.online(Activity.listening(".horohelp for help | Shard #${event.shardInfo.index}")),
+                                        event.shardInfo.index
                                     ).awaitFirstOrNull()
-                                    logger.info("Shard #${it.shardInfo.index} is ready!")
+                                    logger.info("Shard #${event.shardInfo.index} is ready!")
                                 }
                         }
 
@@ -111,27 +137,14 @@ class Client {
                                 .asFlow()
                                 .collect {
                                     if (!oldGuilds.contains(it.guild.id)) {
-                                        it.guild.systemChannel.awaitSingle()
-                                            .createMessage { message ->
-                                                message.setContent("Can't see this message? Enable embeds by turning on `Settings > Text & Images > Show website preview info from links pasted into chat`")
-                                                    .setEmbed { embed ->
-                                                        embed.setTitle("Thanks for letting me in!")
-                                                            .setDescription("I'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
-                                                            .addField(
-                                                                "Quick start",
-                                                                "To get started type `.horohelp` to see a list of my commands and a short usage guide.",
-                                                                false
-                                                            )
-                                                            .addField(
-                                                                "Having issues or need help?",
-                                                                "If any issues, bugs or questions arise, feel free to join the [support server]($GUILD_INVITE) to report bugs, ask your questions or just hang out and chat.",
-                                                                false
-                                                            )
-                                                            .setColor(Color.PINK)
-                                                    }
-                                            }
-                                            .awaitSingle()
+                                        it.guild.firstChannel()
+                                            ?.createMessage { message -> message.welcomeEmbed }
+                                            ?.awaitSingle()
                                         oldGuilds.add(it.guild.id)
+                                        database.execute(
+                                            "INSERT INTO guilds (snowflake) VALUES ($1) ON CONFLICT DO NOTHING",
+                                            mapOf(Pair("$1", it.guild.id))
+                                        )
                                         logger.info(
                                             "Guild \"${it.guild.name}\" created (${it.client.guilds.count()
                                                 .awaitSingle()} guilds)"
@@ -156,6 +169,9 @@ class Client {
                                             !event.member.get().isBot &&
                                             event.message.channel.awaitSingle() is GuildMessageChannel &&
                                             event.message.content.isNotBlank() &&
+                                            (event.message.channel.awaitSingle() as GuildMessageChannel)
+                                                .getEffectivePermissions(event.client.selfId).awaitSingle()
+                                                .contains(Permission.SEND_MESSAGES) &&
                                             event.message.guild.awaitSingle().getSettings(database).prefixes.any {
                                                 event.message.content.startsWith(
                                                     it
