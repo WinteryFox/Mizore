@@ -11,6 +11,7 @@ import io.r2dbc.spi.Row
 import io.r2dbc.spi.RowMetadata
 import kotlinx.coroutines.reactive.awaitSingle
 import org.intellij.lang.annotations.Language
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 
@@ -79,25 +80,22 @@ class Database {
     suspend fun <T> query(
         @Language("PostgreSQL") sql: String,
         binds: Map<String, Any> = emptyMap(),
-        consumer: (Row, RowMetadata) -> T
+        transform: (Row, RowMetadata) -> T
     ): List<T> =
         pool.create()
             .awaitSingle()
             .use { connection ->
-                connection.createStatement(sql)
-                    .let { statement ->
-                        binds.forEach {
-                            statement.bind(it.key, it.value)
+                Flux.from(
+                    connection.createStatement(sql)
+                        .let { statement ->
+                            binds.forEach {
+                                statement.bind(it.key, it.value)
+                            }
+                            return@let statement
                         }
-                        return@let statement
-                    }
-                    .execute()
-                    .toFlux()
-                    .flatMap { result ->
-                        result.map { t, u ->
-                            consumer(t, u)
-                        }
-                    }
+                        .execute()
+                        .awaitSingle()
+                        .map(transform))
                     .collectList()
                     .awaitSingle()
             }
