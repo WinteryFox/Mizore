@@ -4,8 +4,6 @@ import bot.horo.PREFIX
 import discord4j.common.util.Snowflake
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
-import discord4j.core.util.OrderUtil
-import discord4j.rest.util.Permission
 import kotlinx.coroutines.reactive.awaitSingle
 import java.util.*
 
@@ -26,6 +24,7 @@ GROUP BY guilds.snowflake
         """,
         mapOf(Pair("$1", this.id))
     ) { row, _ ->
+        @Suppress("UNCHECKED_CAST")
         GuildSettings(
             id,
             (row["prefixes"] as Array<String>).toSet().plus(PREFIX),
@@ -35,16 +34,7 @@ GROUP BY guilds.snowflake
 
 suspend fun Guild.firstChannel(): GuildMessageChannel? =
     this.channels
-        .transform { OrderUtil.orderGuildChannels(it) }
-        .ofType(GuildMessageChannel::class.java)
-        .collectSortedList()
+        .collectList()
         .awaitSingle()
-        .filter { channel ->
-            channel is GuildMessageChannel &&
-                    channel.getEffectivePermissions(this.client.selfId)
-                        .awaitSingle()
-                        .containsAll(setOf(Permission.SEND_MESSAGES, Permission.VIEW_CHANNEL))
-        }
-        .minBy { channel ->
-            channel.position.awaitSingle()
-        }
+        .filterIsInstance<GuildMessageChannel>()
+        .minBy { it.position.awaitSingle() }
