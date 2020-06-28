@@ -213,7 +213,10 @@ class Client {
                         var input = readLine()
                         while (input != null) {
                             when (input.toLowerCase()) {
-                                "stop" -> client.logout().block()
+                                "stop" -> {
+                                    logger.info("Client shutting down...")
+                                    client.logout().block()
+                                }
                                 "count" -> logger.info("Currently have ${client.guilds.count().block()} guilds")
                                 "uptime" -> {
                                     val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
