@@ -6,6 +6,28 @@ import kotlinx.coroutines.reactive.awaitSingle
 import java.util.*
 
 fun CommandsBuilder.language() {
+    suspend fun getLocale(context: CommandContext): Locale? {
+        val locale =
+            context.localization.locales.firstOrNull { it.displayLanguage.toLowerCase() == context.parameters["language"]!! }
+
+        if (locale == null) {
+            context.event.message.channel.awaitSingle()
+                .createMessage(context.localization.translate("language.unknown", context.event.member.get()).format(
+                    context.parameters["language"],
+                    context.localization.locales.joinToString {
+                        "`${it.getDisplayLanguage(
+                            Locale.forLanguageTag(
+                                "en-GB"
+                            )
+                        )}`"
+                    }
+                ))
+                .awaitSingle()
+        }
+
+        return locale
+    }
+
     command("language") {
         alias("locale")
         alias("lang")
@@ -36,24 +58,7 @@ fun CommandsBuilder.language() {
             parameter("language", true)
 
             dispatch {
-                val locale =
-                    this.localization.locales.firstOrNull { it.displayLanguage.toLowerCase() == this.parameters["language"]!! }
-
-                if (locale == null) {
-                    this.event.message.channel.awaitSingle()
-                        .createMessage(localization.translate("language.unknown", this.event.member.get()).format(
-                            this.parameters["language"],
-                            this.localization.locales.joinToString {
-                                "`${it.getDisplayLanguage(
-                                    Locale.forLanguageTag(
-                                        "en-GB"
-                                    )
-                                )}`"
-                            }
-                        ))
-                        .awaitSingle()
-                    return@dispatch
-                }
+                val locale = getLocale(this) ?: return@dispatch
 
                 this.database.execute(
                     """
@@ -72,6 +77,47 @@ fun CommandsBuilder.language() {
                         ).format(locale.getDisplayLanguage(locale))
                     )
                     .awaitSingle()
+            }
+        }
+
+        subcommand("server") {
+            parameter("language", true)
+
+            dispatch {
+                val locale = getLocale(this) ?: return@dispatch
+
+                this.database.execute(
+                    """
+                        INSERT INTO guilds (snowflake, locale)
+                        VALUES ($1, $2)
+                        ON CONFLICT (snowflake) DO UPDATE SET locale = $2
+                    """,
+                    mapOf(Pair("$1", this.event.guildId.get()), Pair("$2", locale.toLanguageTag()))
+                )
+
+                this.event.message.channel.awaitSingle()
+                    .createMessage(
+                        localization.translate("language.guild.updated", this.event.member.get())
+                            .format(locale.getDisplayLanguage(locale))
+                    )
+                    .awaitSingle()
+            }
+
+            subcommand("remove") {
+                dispatch {
+                    this.database.execute(
+                        """
+                        INSERT INTO guilds (snowflake, locale)
+                        VALUES ($1, null)
+                        ON CONFLICT (snowflake) DO UPDATE SET locale = null
+                        """,
+                        mapOf(Pair("$1", this.event.guildId.get()))
+                    )
+
+                    this.event.message.channel.awaitSingle()
+                        .createMessage(localization.translate("language.guild.removed", this.event.member.get()))
+                        .awaitSingle()
+                }
             }
         }
     }
