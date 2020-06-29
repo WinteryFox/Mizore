@@ -45,12 +45,7 @@ class Database {
             .awaitSingle()
             .use { connection ->
                 connection.createStatement(sql)
-                    .let { statement ->
-                        binds.forEach {
-                            statement.bind(it.key, it.value)
-                        }
-                        return@let statement
-                    }
+                    .apply { binds.forEach { this.bind(it.key, it.value) } }
                     .execute()
                     .awaitSingle()
                     .rowsUpdated
