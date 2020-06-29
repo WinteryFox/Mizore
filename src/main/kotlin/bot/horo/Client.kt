@@ -111,9 +111,9 @@ class Client {
                                 .asFlow()
                                 .collect {
                                     val message =
-                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${if (it.status.reason.isPresent && it.status.reason.get()
-                                                .isNotBlank()
-                                        ) it.status.reason.get() else "No reason specified"})"
+                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${it.status.reason.orElse(
+                                            "No reason specified"
+                                        )})"
                                     if (it.cause.isPresent)
                                         logger.info(message, it.cause.get())
                                     else

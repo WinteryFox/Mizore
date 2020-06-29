@@ -33,7 +33,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.discord4j.discord4j:discord4j-core:2b6287f")
+    implementation("com.discord4j.discord4j:discord4j-core:01972dd")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")
