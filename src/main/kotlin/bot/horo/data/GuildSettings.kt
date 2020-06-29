@@ -4,6 +4,7 @@ import bot.horo.PREFIX
 import discord4j.common.util.Snowflake
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
+import discord4j.rest.util.Permission
 import kotlinx.coroutines.reactive.awaitSingle
 import java.util.*
 
@@ -37,4 +38,8 @@ suspend fun Guild.firstChannel(): GuildMessageChannel? =
         .collectList()
         .awaitSingle()
         .filterIsInstance<GuildMessageChannel>()
+        .filter {
+            it.getEffectivePermissions(this.client.selfId).awaitSingle()
+                .containsAll(listOf(Permission.VIEW_CHANNEL, Permission.SEND_MESSAGES))
+        }
         .minBy { it.position.awaitSingle() }
