@@ -59,20 +59,16 @@ class Database {
 
     suspend fun <T> batch(
         batch: (Batch) -> Unit,
-        consumer: (Row, RowMetadata) -> T
+        transform: (Row, RowMetadata) -> T
     ): List<T> =
         pool.create()
             .awaitSingle()
             .use { connection ->
-                val b = connection.createBatch()
-                batch(b)
-                b.execute()
+                connection.createBatch()
+                    .apply(batch)
+                    .execute()
                     .toFlux()
-                    .flatMap { result ->
-                        result.map { t, u ->
-                            consumer(t, u)
-                        }
-                    }
+                    .concatMap { it.map(transform) }
                     .collectList()
                     .awaitSingle()
             }
@@ -87,12 +83,7 @@ class Database {
             .use { connection ->
                 Flux.from(
                     connection.createStatement(sql)
-                        .let { statement ->
-                            binds.forEach {
-                                statement.bind(it.key, it.value)
-                            }
-                            return@let statement
-                        }
+                        .apply { binds.forEach { this.bind(it.key, it.value) } }
                         .execute()
                         .awaitSingle()
                         .map(transform))
