@@ -1,15 +1,14 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 buildscript {
     repositories {
         jcenter()
-    }
-    dependencies {
-        classpath("com.github.jengelman.gradle.plugins:shadow:2.0.4")
     }
 }
 
 plugins {
     kotlin("jvm") version "1.3.72"
-    id("com.github.johnrengelman.shadow") version "2.0.4"
+    id("com.google.cloud.tools.jib") version "2.4.0"
     idea
 }
 
@@ -44,18 +43,22 @@ dependencies {
 }
 
 tasks {
-    compileKotlin {
-        kotlinOptions.jvmTarget = "13"
-    }
-    compileTestKotlin {
-        kotlinOptions.jvmTarget = "13"
-    }
-    shadowJar {
-        archiveBaseName.set("Horo")
-        archiveVersion.set("")
-        mergeServiceFiles()
-        manifest {
-            attributes(mapOf("Main-Class" to "bot.horo.MainKt"))
+    withType<KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = "11"
+            targetCompatibility = "11"
+            sourceCompatibility = "11"
         }
     }
+}
+
+java {
+    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_11
+}
+
+jib {
+    to.image = "horobot:latest"
+    to.tags = setOf(version.toString())
+    container.mainClass = "bot.horo.MainKt"
 }

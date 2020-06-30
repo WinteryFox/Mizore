@@ -21,11 +21,11 @@ class Database {
             .connectionFactory(
                 PostgresqlConnectionFactory(
                     PostgresqlConnectionConfiguration.builder()
-                        .host("localhost")
+                        .host(System.getenv("POSTGRES_HOST"))
                         .port(5432)
-                        .username("horo")
-                        .password("12345")
-                        .database("horo")
+                        .username(System.getenv("POSTGRES_USER"))
+                        .password(System.getenv("POSTGRES_PASSWORD"))
+                        .database(System.getenv("POSTGRES_DB"))
                         .codecRegistrar { _, allocator, registry ->
                             registry.addFirst(SnowflakeCodec(allocator))
                             Mono.empty()

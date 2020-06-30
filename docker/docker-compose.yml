@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:13
+    restart: always
+    env_file: postgres.env
+    container_name: HoroPostgres
+    volumes:
+      - data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    expose:
+      - 5432
+
+  bot:
+    image: horobot:latest
+    restart: always
+    env_file:
+      - bot.env
+      - postgres.env
+    container_name: HoroBot
+    depends_on:
+      - postgres
+
+volumes:
+  data:

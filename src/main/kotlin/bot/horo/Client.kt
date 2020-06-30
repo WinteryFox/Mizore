@@ -56,7 +56,7 @@ class Client {
 
     fun login() {
         thread(name = "Client") {
-            DiscordClient.create(System.getenv("token"))
+            DiscordClient.create(System.getenv("TOKEN"))
                 .gateway()
                 .setSharding(ShardingStrategy.recommended())
                 .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
