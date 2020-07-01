@@ -168,11 +168,18 @@ class Client {
                                 .filter { event ->
                                     event.member.isPresent &&
                                             !event.member.get().isBot &&
-                                            event.message.channel.awaitSingle() is GuildMessageChannel &&
                                             event.message.content.isNotBlank() &&
-                                            (event.message.channel.awaitSingle() as GuildMessageChannel)
-                                                .getEffectivePermissions(event.client.selfId).awaitSingle()
-                                                .contains(Permission.SEND_MESSAGES) &&
+                                            event.message.channel
+                                                .ofType(GuildMessageChannel::class.java)
+                                                .awaitFirstOrNull()
+                                                ?.getEffectivePermissions(event.client.selfId)
+                                                ?.awaitSingle()
+                                                ?.containsAll(
+                                                    setOf(
+                                                        Permission.VIEW_CHANNEL,
+                                                        Permission.SEND_MESSAGES
+                                                    )
+                                                ) ?: false &&
                                             event.message.guild.awaitSingle().getSettings(database).prefixes.any {
                                                 event.message.content.startsWith(
                                                     it
