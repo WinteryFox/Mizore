@@ -22,6 +22,7 @@ import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import discord4j.rest.util.Color
 import discord4j.rest.util.Permission
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
