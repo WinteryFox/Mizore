@@ -31,11 +31,8 @@ import kotlinx.coroutines.reactive.awaitLast
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
-import java.lang.management.ManagementFactory
 import kotlin.concurrent.thread
-import kotlin.math.floor
 import kotlin.time.ExperimentalTime
-import kotlin.time.milliseconds
 
 @ExperimentalTime
 class Client {
@@ -215,34 +212,6 @@ class Client {
                     }
                 }
                 .login()
-                .doOnNext { client ->
-                    thread(name = "ConsoleCommand", isDaemon = true) {
-                        var input = readLine()
-                        while (input != null) {
-                            when (input.toLowerCase()) {
-                                "stop" -> {
-                                    logger.info("Client shutting down...")
-                                    client.logout().block()
-                                }
-                                "count" -> logger.info("Currently have ${client.guilds.count().block()} guilds")
-                                "uptime" -> {
-                                    val uptime = ManagementFactory.getRuntimeMXBean().uptime.milliseconds
-                                    logger.info(
-                                        "Client has been online for %s weeks %s days %s hours %s minutes %s seconds".format(
-                                            floor(uptime.inDays / 7).toInt(),
-                                            floor(uptime.inDays).toInt() % 7,
-                                            floor(uptime.inHours).toInt() % 24,
-                                            floor(uptime.inMinutes).toInt() % 60,
-                                            floor(uptime.inSeconds).toInt() % 60
-                                        )
-                                    )
-                                }
-                                else -> logger.info("Unknown command; $input")
-                            }
-                            input = readLine()
-                        }
-                    }
-                }
                 .block()!!
                 .onDisconnect()
                 .block()
@@ -302,20 +271,31 @@ class Client {
             return
         }
 
-        val parametersSupplied = "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content).toList()
+        val parameters = "--(\\w+)\\s+((?:.(?!--\\w))+)".toRegex().findAll(event.message.content)
+            .map { it.groupValues[1] to it.groupValues[2] }.toMap().toMutableMap()
 
-        if (command.parameters.size != parametersSupplied.size ||
-            !command.parameters.filter { it.value }.all { parameter ->
-                parametersSupplied.map { it.groupValues[1] }.contains(parameter.key)
-            }
+        if (parameters.isEmpty() && command.parameters.size == 1) {
+            val parameter = event.message.content.substring(
+                event.message.content.findAnyOf(command.aliases.plus(command.name))!!
+                    .let { it.first + it.second.length }, event.message.content.length
+            ).removePrefix(" ")
+
+            if (command.name != parameter && !command.aliases.contains(parameter) && parameter.isNotBlank())
+                parameters[command.parameters.keys.first()] = parameter
+        }
+
+        if (command.parameters.filter { it.value }.size != parameters.size ||
+            !command.parameters.filter { it.value }
+                .all { parameter -> parameters.containsKey(parameter.key) }
         ) {
-            event.message.restChannel.createMessage(
-                EmbedData.builder()
-                    .title("Missing arguments")
-                    .description("TODO (Kat was here)")
-                    .color(Color.YELLOW.rgb)
-                    .build()
-            ).awaitSingle()
+            event.message.channel
+                .awaitSingle()
+                .createEmbed { embed ->
+                    embed.setTitle("Missing arguments")
+                        .setDescription("TODO")
+                        .setColor(Color.YELLOW)
+                }
+                .awaitSingle()
             return
         }
 
@@ -323,7 +303,7 @@ class Client {
         command.dispatch.invoke(
             CommandContext(
                 event,
-                parametersSupplied.map { it.groupValues[1] to it.groupValues[2] }.toMap(),
+                parameters,
                 database,
                 localization
             )

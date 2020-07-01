@@ -16,7 +16,7 @@ fun MutableList<Command>.traverse(input: String): Command? {
     sequence = sequence.drop(1)
 
     for (seq in sequence) {
-        command = command.children.find { it.name == seq || it.aliases.contains(seq) } ?: return null
+        command = command.children.find { it.name == seq || it.aliases.contains(seq) } ?: return command
     }
 
     return command

@@ -27,6 +27,13 @@ fun CommandsBuilder.prefix() {
             parameter("prefix", true)
 
             dispatch {
+                if (this.parameters["prefix"]!!.length > 5) {
+                    this.event.message.channel.awaitSingle()
+                        .createMessage(this.localization.translate("prefix.length", this.event.member.get()))
+                        .awaitSingle()
+                    return@dispatch
+                }
+
                 if (this.database.execute(
                         "INSERT INTO prefixes (snowflake, prefix) VALUES ($1, $2) ON CONFLICT DO NOTHING",
                         mapOf(
