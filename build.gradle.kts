@@ -58,7 +58,6 @@ java {
 }
 
 jib {
-    to.image = "horobot:latest"
-    to.tags = setOf(version.toString())
+    to.image = "winteryfox/horobot:latest"
     container.mainClass = "bot.horo.MainKt"
 }
