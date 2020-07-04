@@ -22,6 +22,9 @@ import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import discord4j.rest.util.Color
 import discord4j.rest.util.Permission
+import discord4j.store.redis.RedisStoreService
+import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisURI
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
@@ -33,9 +36,7 @@ import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
 import kotlin.concurrent.thread
-import kotlin.time.ExperimentalTime
 
-@ExperimentalTime
 class Client {
     private val logger = LoggerFactory.getLogger(Client::class.java)
     private val oldGuilds = mutableSetOf<Snowflake>()
@@ -59,6 +60,14 @@ class Client {
                 .setSharding(ShardingStrategy.recommended())
                 .setEnabledIntents(IntentSet.of(Intent.GUILDS, Intent.GUILD_MESSAGES))
                 .setInitialStatus { Presence.doNotDisturb(Activity.playing("Loading... Please wait...")) }
+                .setStoreService(
+                    RedisStoreService
+                        .builder()
+                        .redisClient(
+                            RedisClient.create(RedisURI.create(System.getenv("REDIS_HOST"), 6379))
+                        )
+                        .build()
+                )
                 .withEventDispatcher { dispatcher ->
                     mono(CoroutineName("EventDispatcherCoroutine")) {
                         launch(CoroutineName("ReadyCoroutine")) {
@@ -165,24 +174,24 @@ class Client {
                                 .asFlow()
                                 .filter { event ->
                                     event.member.isPresent &&
-                                            !event.member.get().isBot &&
-                                            event.message.content.isNotBlank() &&
-                                            event.message.channel
-                                                .ofType(GuildMessageChannel::class.java)
-                                                .awaitFirstOrNull()
-                                                ?.getEffectivePermissions(event.client.selfId)
-                                                ?.awaitSingle()
-                                                ?.containsAll(
-                                                    setOf(
-                                                        Permission.VIEW_CHANNEL,
-                                                        Permission.SEND_MESSAGES
-                                                    )
-                                                ) ?: false &&
-                                            event.message.guild.awaitSingle().getSettings(database).prefixes.any {
-                                                event.message.content.startsWith(
-                                                    it
+                                        !event.member.get().isBot &&
+                                        event.message.content.isNotBlank() &&
+                                        event.message.channel
+                                            .ofType(GuildMessageChannel::class.java)
+                                            .awaitFirstOrNull()
+                                            ?.getEffectivePermissions(event.client.selfId)
+                                            ?.awaitSingle()
+                                            ?.containsAll(
+                                                setOf(
+                                                    Permission.VIEW_CHANNEL,
+                                                    Permission.SEND_MESSAGES
                                                 )
-                                            }
+                                            ) ?: false &&
+                                        event.message.guild.awaitSingle().getSettings(database).prefixes.any {
+                                            event.message.content.startsWith(
+                                                it
+                                            )
+                                        }
                                 }
                                 .collect { event ->
                                     launch(CoroutineName("CommandCoroutine")) {

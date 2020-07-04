@@ -24,7 +24,7 @@ version = "0.0.1"
 description = "A Discord bot written with love in Kotlin using Discord4J"
 
 repositories {
-    mavenCentral()
+    jcenter()
     maven("https://jitpack.io")
     maven("https://repo.spring.io/snapshot")
     maven("https://oss.sonatype.org/content/repositories/snapshots")
@@ -33,6 +33,7 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("com.discord4j.discord4j:discord4j-core:01972dd")
+    implementation("com.discord4j.stores:stores-redis:732bd096b5")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")

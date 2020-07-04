@@ -10,6 +10,11 @@ services:
       - data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  redis:
+    image: redis:6.0.5
+    restart: always
+    container_name: redis
+
   bot:
     image: winteryfox/horobot:latest
     restart: always
@@ -19,6 +24,7 @@ services:
     container_name: bot
     depends_on:
       - postgres
+      - redis
 
 volumes:
   data:

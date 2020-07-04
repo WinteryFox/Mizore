@@ -4,6 +4,7 @@
     <logger name="reactor" level="INFO"/>
     <logger name="org.reflections" level="INFO"/>
     <logger name="discord4j" level="INFO"/>
+    <logger name="io.lettuce" level="INFO"/>
     <logger name="io.r2dbc" level="INFO"/>
     <logger name="bot.horo" level="TRACE"/>
 
