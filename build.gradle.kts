@@ -26,21 +26,19 @@ description = "A Discord bot written with love in Kotlin using Discord4J"
 repositories {
     jcenter()
     maven("https://jitpack.io")
-    maven("https://repo.spring.io/snapshot")
-    maven("https://oss.sonatype.org/content/repositories/snapshots")
+    maven("https://repo.spring.io/milestone")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.discord4j.discord4j:discord4j-core:01972dd")
-    implementation("com.discord4j.stores:stores-redis:732bd096b5")
+    implementation("com.discord4j:discord4j-core:3.1.0")
+    implementation("com.discord4j.stores:stores-redis:c244bed")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")
-    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.0-SNAPSHOT")
+    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.0-M1")
     implementation("io.r2dbc:r2dbc-postgresql:0.8.3.RELEASE")
     implementation("io.r2dbc:r2dbc-pool:0.8.3.RELEASE")
-    implementation("io.projectreactor:reactor-tools")
 }
 
 tasks {
