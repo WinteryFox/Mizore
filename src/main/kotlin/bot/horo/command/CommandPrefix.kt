@@ -3,6 +3,7 @@ package bot.horo.command
 import bot.horo.QUESTION_MARK
 import bot.horo.data.getSettings
 import discord4j.rest.util.Color
+import discord4j.rest.util.Permission
 import kotlinx.coroutines.reactive.awaitSingle
 
 fun CommandsBuilder.prefix() {
@@ -24,6 +25,7 @@ fun CommandsBuilder.prefix() {
         }
 
         subcommand("add") {
+            userPermission(Permission.MANAGE_GUILD)
             parameter("prefix", true)
 
             dispatch {
@@ -63,6 +65,7 @@ fun CommandsBuilder.prefix() {
         }
 
         subcommand("remove") {
+            userPermission(Permission.MANAGE_GUILD)
             parameter("prefix", true)
 
             dispatch {
@@ -95,15 +98,3 @@ fun CommandsBuilder.prefix() {
         }
     }
 }
-
-/*
-private suspend fun MessageChannel.createMessageSuspend(spec: suspend (MessageCreateSpec) -> MessageCreateSpec): Message {
-    val res = spec(MessageCreateSpec())
-
-    val consumer = Consumer<MessageCreateSpec> { s ->
-        s.setContent(res.getDataSomehow().content)
-            .doThisForEveryOption()...
-    }
-
-    return this.createMessage(consumer).awaitSingle()
-}*/

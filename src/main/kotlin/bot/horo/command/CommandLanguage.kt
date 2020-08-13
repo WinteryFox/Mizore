@@ -2,6 +2,7 @@ package bot.horo.command
 
 import bot.horo.data.getSettings
 import discord4j.rest.util.Color
+import discord4j.rest.util.Permission
 import kotlinx.coroutines.reactive.awaitSingle
 import java.util.*
 
@@ -55,6 +56,7 @@ fun CommandsBuilder.language() {
         }
 
         subcommand("set") {
+            userPermission(Permission.MANAGE_GUILD)
             parameter("language", true)
 
             dispatch {
@@ -81,6 +83,7 @@ fun CommandsBuilder.language() {
         }
 
         subcommand("server") {
+            userPermission(Permission.MANAGE_GUILD)
             parameter("language", true)
 
             dispatch {
@@ -104,6 +107,8 @@ fun CommandsBuilder.language() {
             }
 
             subcommand("remove") {
+                userPermission(Permission.MANAGE_GUILD)
+
                 dispatch {
                     this.database.execute(
                         """
