@@ -56,7 +56,6 @@ fun CommandsBuilder.language() {
         }
 
         subcommand("set") {
-            userPermission(Permission.MANAGE_GUILD)
             parameter("language", true)
 
             dispatch {
