@@ -50,6 +50,7 @@ class Client {
             invite()
             prefix()
             language()
+            animals()
         }
     }
 
@@ -118,9 +119,11 @@ class Client {
                                 .asFlow()
                                 .collect {
                                     val message =
-                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${it.status.reason.orElse(
-                                            "No reason specified"
-                                        )})"
+                                        "Shard #${it.shardInfo.index} has disconnected (${it.status.code}: ${
+                                            it.status.reason.orElse(
+                                                "No reason specified"
+                                            )
+                                        })"
                                     if (it.cause.isPresent)
                                         logger.info(message, it.cause.get())
                                     else
@@ -154,8 +157,10 @@ class Client {
                                             mapOf(Pair("$1", it.guild.id))
                                         )
                                         logger.info(
-                                            "Guild \"${it.guild.name}\" created (${it.client.guilds.count()
-                                                .awaitSingle()} guilds)"
+                                            "Guild \"${it.guild.name}\" created (${
+                                                it.client.guilds.count()
+                                                    .awaitSingle()
+                                            } guilds)"
                                         )
                                     }
                                 }
@@ -201,18 +206,22 @@ class Client {
                                                     handleMessage(event)
                                                 } catch (exception: RuntimeException) {
                                                     logger.error("Command handler threw an exception", exception)
-                                                    event.message.channel.awaitSingle().createEmbed { spec ->
-                                                        spec
-                                                            .setTitle("Well that didn't go as planned...")
-                                                            .setDescription(
-                                                                """
-                                                                An error occurred while processing your command
-                                                                ```${exception.message}```
-                                                                Try again later!
-                                                                """.trimIndent()
-                                                            )
-                                                            .setColor(Color.RED)
-                                                    }.awaitSingle()
+                                                    if ((event.message.channel.awaitSingle() as GuildMessageChannel)
+                                                            .getEffectivePermissions(event.client.selfId)
+                                                            .awaitSingle()
+                                                            .contains(Permission.SEND_MESSAGES))
+                                                        event.message.channel.awaitSingle().createEmbed { spec ->
+                                                            spec
+                                                                .setTitle("Well that didn't go as planned...")
+                                                                .setDescription(
+                                                                    """
+                                                                    An error occurred while processing your command
+                                                                    ```${exception.message}```
+                                                                    Try again later!
+                                                                    """.trimIndent()
+                                                                )
+                                                                .setColor(Color.RED)
+                                                        }.awaitSingle()
                                                 }
                                             }
                                         ).awaitLast()
@@ -254,11 +263,13 @@ class Client {
             channel.createEmbed { spec ->
                 spec.setTitle("You are missing permissions!")
                     .setDescription(
-                        "You are missing the following permissions; ${command.userPermissions
-                            .andNot(userPermissions)
-                            .joinToString { permission ->
-                                permission.name.toLowerCase().capitalize().replace("_", " ")
-                            }}"
+                        "You are missing the following permissions; ${
+                            command.userPermissions
+                                .andNot(userPermissions)
+                                .joinToString { permission ->
+                                    permission.name.toLowerCase().capitalize().replace("_", " ")
+                                }
+                        }"
                     )
                     .setColor(Color.ORANGE)
             }.awaitSingle()
@@ -270,11 +281,13 @@ class Client {
             channel.createEmbed { spec ->
                 spec.setTitle("I am missing permissions!")
                     .setDescription(
-                        "I am missing the following permissions; ${command.botPermissions
-                            .andNot(botPermissions)
-                            .joinToString { permission ->
-                                permission.name.toLowerCase().capitalize().replace("_", " ")
-                            }}"
+                        "I am missing the following permissions; ${
+                            command.botPermissions
+                                .andNot(botPermissions)
+                                .joinToString { permission ->
+                                    permission.name.toLowerCase().capitalize().replace("_", " ")
+                                }
+                        }"
                     )
                     .setColor(Color.ORANGE)
             }.awaitSingle()
