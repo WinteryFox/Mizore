@@ -110,7 +110,7 @@ val MessageCreateSpec.welcomeEmbed
         this.setContent("Can't see this message? Enable embeds by turning on `Settings > Text & Images > Show website preview info from links pasted into chat`")
                 .setEmbed { embed ->
                     embed.setTitle("Thanks for letting me in!")
-                            .setDescription("I'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
+                            .setDescription("Hi there, I'm Horo!\nI'm a bot primarily focused on bringing a fun and interactive tamagotchi (digital pet) system to the table!")
                             .addField(
                                     "Quick start",
                                     "To get started type `.horohelp` to see a list of my commands and a short usage guide.",
