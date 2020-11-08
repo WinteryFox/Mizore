@@ -4,7 +4,7 @@ services:
   postgres:
     image: postgres:13
     restart: always
-    env_file: postgres.env
+    env_file: postgres.yml
     container_name: postgres
     volumes:
       - data:/var/lib/postgresql/data
@@ -19,8 +19,8 @@ services:
     image: winteryfox/horobot:latest
     restart: always
     env_file:
-      - bot.env
-      - postgres.env
+      - bot.yml
+      - postgres.yml
     container_name: bot
     depends_on:
       - postgres
