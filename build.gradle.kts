@@ -1,14 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-buildscript {
-    repositories {
-        jcenter()
-    }
-}
-
 plugins {
-    kotlin("jvm") version "1.3.72"
-    id("com.google.cloud.tools.jib") version "2.4.0"
+    kotlin("jvm") version "1.7.21"
+    id("com.google.cloud.tools.jib") version "3.3.1"
     idea
 }
 
@@ -20,43 +14,39 @@ idea {
 }
 
 group = "bot.horo"
-version = "0.0.1"
-description = "A Discord bot written with love in Kotlin using Discord4J"
+version = "1.0.0"
+description = "A multi-functional Discord bot with a focus on tamagotchi"
+java.sourceCompatibility = JavaVersion.VERSION_18
+java.targetCompatibility = JavaVersion.VERSION_18
 
 repositories {
-    jcenter()
-    maven("https://jitpack.io")
-    maven("https://repo.spring.io/milestone")
+    mavenCentral()
+    maven("https://oss.sonatype.org/content/repositories/snapshots")
+    maven("https://maven.kotlindiscord.com/repository/maven-public")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.discord4j:discord4j-core:3.1.0")
-    implementation("com.discord4j.stores:stores-redis:c244bed")
-    implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.7")
-    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions:1.1.0-M1")
-    implementation("io.r2dbc:r2dbc-postgresql:0.8.3.RELEASE")
-    implementation("io.r2dbc:r2dbc-pool:0.8.3.RELEASE")
+    implementation("io.github.microutils:kotlin-logging-jvm:3.0.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+    /*implementation("dev.kord:kord-core:0.8.0-M17")
+    implementation("dev.kord:kord-gateway:0.8.0-M17")*/
+    implementation("com.kotlindiscord.kord.extensions:kord-extensions:1.5.5-SNAPSHOT")
+
+    runtimeOnly("ch.qos.logback:logback-classic:1.4.5")
+    runtimeOnly("org.fusesource.jansi:jansi:2.4.0")
 }
 
 tasks {
     withType<KotlinCompile> {
         kotlinOptions {
-            jvmTarget = "11"
-            targetCompatibility = "11"
-            sourceCompatibility = "11"
+            jvmTarget = "18"
         }
     }
 }
 
-java {
-    targetCompatibility = JavaVersion.VERSION_11
-    sourceCompatibility = JavaVersion.VERSION_11
-}
-
 jib {
-    to.image = "winteryfox/horobot:latest"
+    to.image = "winteryfox/horobot:$version"
     container.mainClass = "bot.horo.MainKt"
 }
