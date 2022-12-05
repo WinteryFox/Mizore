@@ -1,6 +1,5 @@
-FROM postgres:13 AS HoroPostgresDev
+FROM postgres:15.1 AS horo-api-postgres
 
-ENV POSTGRES_DB horo
-ENV POSTGRES_USER horo
 ENV POSTGRES_PASSWORD 12345
-COPY init.sql /docker-entrypoint-initdb.d/init.sql
+
+COPY tables.sql /docker-entrypoint-initdb.d/tables.sql
