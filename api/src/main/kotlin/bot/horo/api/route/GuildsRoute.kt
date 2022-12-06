@@ -1,8 +1,7 @@
 package bot.horo.api.route
 
 import bot.horo.api.Guilds
-import bot.horo.api.response.GuildResponse
-import bot.horo.api.table.GuildEntity
+import bot.horo.api.table.Guild
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.locations.*
@@ -15,21 +14,22 @@ import org.jetbrains.exposed.sql.transactions.transaction
 @OptIn(KtorExperimentalLocationsAPI::class)
 fun Route.guilds() {
     get<Guilds> { params ->
-        val id = params.id
+        val id = params.guildId
         newSuspendedTransaction {
-            val guild = GuildEntity.findById(id)
+            val guild = Guild.Entity.findById(id)
             if (guild == null) {
                 call.response.status(HttpStatusCode.NotFound)
                 return@newSuspendedTransaction
             }
 
-            call.respond(GuildResponse(id))
+            call.respond(Guild.Response(id))
         }
     }
 
     post<Guilds> { params ->
         transaction {
-            GuildEntity.new(params.id) { }
+            // TODO: Make not error if exists
+            Guild.Entity.new(params.guildId) { }
         }
     }
 }

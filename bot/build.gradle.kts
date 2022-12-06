@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 val ktor_version: String by project
 val logback_version: String by project
 val jansi_version: String by project
+val kordex_version: String by project
 
 plugins {
     kotlin("jvm")
@@ -26,7 +27,8 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-    implementation("com.kotlindiscord.kord.extensions:kord-extensions:1.5.5-SNAPSHOT")
+    implementation("com.kotlindiscord.kord.extensions:kord-extensions:$kordex_version")
+    implementation("com.kotlindiscord.kord.extensions:unsafe:$kordex_version")
     implementation("com.rabbitmq:amqp-client:5.16.0")
     implementation(project(":gateway"))
 

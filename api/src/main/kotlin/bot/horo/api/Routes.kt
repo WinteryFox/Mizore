@@ -3,20 +3,20 @@
 package bot.horo.api
 
 import io.ktor.server.locations.*
+import kotlinx.serialization.Transient
 
-@Location("/guilds/{id}")
+@Location("/guilds/{guildId}")
 data class Guilds(
-    val id: Long
+    val guildId: Long
 ) {
     @Location("/selfroles")
     data class SelfRoles(
         val guild: Guilds
     ) {
-        class Post(
+        @Location("/{selfRolesId}")
+        data class Id(
             val selfRoles: SelfRoles,
-            val id: String,
-            val messageId: Long,
-            val roleIds: List<Long>
+            val selfRolesId: String
         )
     }
 }

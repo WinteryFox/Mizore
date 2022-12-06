@@ -7,6 +7,7 @@ import bot.horo.api.route.selfRoles
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.http.*
+import io.ktor.http.ContentType.Application.Json
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -16,6 +17,7 @@ import io.ktor.server.plugins.autohead.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.Database
 
 fun main(args: Array<String>): Unit = EngineMain.main(args)
@@ -35,7 +37,9 @@ fun Application.api() {
     install(AutoHeadResponse)
     install(Routing)
     install(ContentNegotiation) {
-        json()
+        json(Json {
+            encodeDefaults = false
+        })
     }
 
     routing {

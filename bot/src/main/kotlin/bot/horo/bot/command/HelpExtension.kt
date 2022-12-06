@@ -7,7 +7,7 @@ import dev.kord.common.Color
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 
-class Help : Extension() {
+class HelpExtension : Extension() {
     override val name: String = "horo.help"
     override val bundle: String = "horo.help"
 
@@ -30,7 +30,7 @@ class Help : Extension() {
 
                     actionRow {
                         linkButton("https://discord.gg/6vJXZ8d") {
-                            label = translate("support")
+                            label = translate("embed.support")
                         }
                     }
                 }

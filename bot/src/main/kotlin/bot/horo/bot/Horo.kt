@@ -20,8 +20,8 @@ fun main(): Unit = runBlocking {
 
         extensions {
             help { enableBundledExtension = false }
-            add(::Help)
-            add(::SelfRole)
+            add(::HelpExtension)
+            add(::SelfRoleExtension)
         }
 
         presence {
