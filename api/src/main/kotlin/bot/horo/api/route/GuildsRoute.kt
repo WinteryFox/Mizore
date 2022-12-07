@@ -27,9 +27,10 @@ fun Route.guilds() {
     }
 
     post<Guilds> { params ->
-        transaction {
+        newSuspendedTransaction {
             // TODO: Make not error if exists
             Guild.Entity.new(params.guildId) { }
+            call.respond(HttpStatusCode.OK)
         }
     }
 }

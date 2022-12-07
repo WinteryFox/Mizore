@@ -4,6 +4,7 @@ package bot.horo.api
 
 import io.ktor.server.locations.*
 import kotlinx.serialization.Transient
+import java.util.UUID
 
 @Location("/guilds/{guildId}")
 data class Guilds(
@@ -16,7 +17,7 @@ data class Guilds(
         @Location("/{selfRolesId}")
         data class Id(
             val selfRoles: SelfRoles,
-            val selfRolesId: String
+            val selfRolesId: UUID
         )
     }
 }

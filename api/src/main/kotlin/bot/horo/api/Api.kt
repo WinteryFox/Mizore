@@ -6,8 +6,9 @@ import bot.horo.api.route.guilds
 import bot.horo.api.route.selfRoles
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import dev.kord.common.annotation.KordExperimental
+import dev.kord.core.Kord
 import io.ktor.http.*
-import io.ktor.http.ContentType.Application.Json
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -15,6 +16,7 @@ import io.ktor.server.locations.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.autohead.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
@@ -22,7 +24,7 @@ import org.jetbrains.exposed.sql.Database
 
 fun main(args: Array<String>): Unit = EngineMain.main(args)
 
-@OptIn(KtorExperimentalLocationsAPI::class)
+@OptIn(KtorExperimentalLocationsAPI::class, KordExperimental::class)
 fun Application.api() {
     Database.connect(HikariDataSource {
         driverClassName = "org.postgresql.Driver"
@@ -32,7 +34,13 @@ fun Application.api() {
         isAutoCommit = false
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"
     })
+    val kord: Kord = Kord.restOnly(System.getenv("TOKEN"))
 
+    install(StatusPages) {
+        exception<BadRequestException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, BadRequestResponse(cause.code, cause.message!!))
+        }
+    }
     install(Locations)
     install(AutoHeadResponse)
     install(Routing)
@@ -48,7 +56,7 @@ fun Application.api() {
         }
         route("/api") {
             guilds()
-            selfRoles()
+            selfRoles(kord)
         }
     }
 }

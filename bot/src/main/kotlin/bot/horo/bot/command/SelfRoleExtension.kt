@@ -1,37 +1,39 @@
 package bot.horo.bot.command
 
+import bot.horo.api.serialization.OptionalProperty
 import bot.horo.api.table.SelfRole
 import bot.horo.bot.Api
+import bot.horo.bot.Api.response
 import bot.horo.bot.parseHex
+import com.kotlindiscord.kord.extensions.checks.guildFor
+import com.kotlindiscord.kord.extensions.checks.userFor
 import com.kotlindiscord.kord.extensions.commands.Arguments
 import com.kotlindiscord.kord.extensions.commands.converters.impl.channel
-import com.kotlindiscord.kord.extensions.commands.converters.impl.string
 import com.kotlindiscord.kord.extensions.components.components
 import com.kotlindiscord.kord.extensions.components.ephemeralSelectMenu
-import com.kotlindiscord.kord.extensions.components.publicButton
-import com.kotlindiscord.kord.extensions.components.publicSelectMenu
 import com.kotlindiscord.kord.extensions.extensions.Extension
 import com.kotlindiscord.kord.extensions.extensions.ephemeralSlashCommand
+import com.kotlindiscord.kord.extensions.extensions.event
 import com.kotlindiscord.kord.extensions.modules.unsafe.annotations.UnsafeAPI
 import com.kotlindiscord.kord.extensions.modules.unsafe.extensions.unsafeSubCommand
 import com.kotlindiscord.kord.extensions.modules.unsafe.types.InitialSlashCommandResponse
 import com.kotlindiscord.kord.extensions.types.respond
-import com.kotlindiscord.kord.extensions.types.respondEphemeral
 import com.kotlindiscord.kord.extensions.utils.*
 import dev.kord.common.Color
 import dev.kord.common.entity.*
 import dev.kord.core.behavior.channel.asChannelOf
-import dev.kord.core.behavior.channel.createEmbed
 import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.edit
 import dev.kord.core.behavior.interaction.modal
 import dev.kord.core.behavior.interaction.respondEphemeral
 import dev.kord.core.entity.channel.TextChannel
+import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.ModalSubmitInteractionCreateEvent
+import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
+import io.ktor.client.call.*
 import io.ktor.http.*
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import java.util.UUID
 import kotlin.time.Duration.Companion.minutes
@@ -41,17 +43,6 @@ class SelfRoleExtension : Extension() {
     override val bundle: String = "horo.self_role"
 
     private class SelfRoleArguments : Arguments() {
-        val id by string {
-            name = "create.arguments.id.name"
-            description = "create.arguments.id.description"
-
-            validate {
-                failIf(
-                    Api.getSelfRoles(context.getGuild()!!.id, value).status != HttpStatusCode.NotFound,
-                    translate("create.arguments.id.fail")
-                )
-            }
-        }
         val channel by channel {
             requiredChannelTypes = mutableSetOf(ChannelType.GuildText)
             name = "create.arguments.channel.name"
@@ -68,6 +59,67 @@ class SelfRoleExtension : Extension() {
 
     @OptIn(UnsafeAPI::class)
     override suspend fun setup() {
+        event<ButtonInteractionCreateEvent> {
+            check {
+                passIf(event.interaction.componentId.startsWith("srm/"))
+            }
+            action {
+                val response = Api.getSelfRoles(
+                    event.interaction.data.guildId.asOptional.value!!,
+                    event.interaction.componentId.removePrefix("srm/")
+                )
+                if (response.status != HttpStatusCode.OK) {
+                    event.interaction.respondEphemeral {
+                        content = translate("inactive")
+                    }
+                    return@action
+                }
+
+                val guildRoles =
+                    guildFor(event)!!.roles.filter { response.body!!.roleIds.contains(it.id.value.toLong()) }.toList()
+                //val memberBehaviour = memberFor(event)!!
+                val memberBehaviour = userFor(event)!!.asMember(event.interaction.data.guildId.asOptional.value!!)
+                val memberRoles = memberBehaviour.asMember().roleIds
+
+                event.interaction.respondEphemeral {
+                    components {
+                        ephemeralSelectMenu {
+                            minimumChoices = 0
+                            maximumChoices = guildRoles.size
+                            for (role in guildRoles)
+                                option(role.name, role.id.toString()) {
+                                    default = memberRoles.contains(role.id) == true
+                                    if (role.unicodeEmoji != null)
+                                        emoji = DiscordPartialEmoji(null, role.unicodeEmoji)
+                                }
+
+                            action {
+                                respond {
+                                    memberBehaviour.edit {
+                                        this.roles = memberRoles.toMutableSet()
+                                        this.roles!!.addAll(selected.map { Snowflake(it) })
+                                        this.roles!!.removeAll(
+                                            options.map { Snowflake(it.value) }
+                                                .filter { role ->
+                                                    !selected.map {
+                                                        Snowflake(
+                                                            it
+                                                        )
+                                                    }.contains(role)
+                                                }
+                                                .sorted()
+                                                .toSet()
+                                        )
+                                    }
+                                    content = selected.size.toString()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         ephemeralSlashCommand {
             name = "name"
             description = "description"
@@ -84,16 +136,32 @@ class SelfRoleExtension : Extension() {
                 action {
                     val uuid = UUID.randomUUID()
                     event.interaction.modal(translate("create.modal.title"), uuid.toString()) {
-                        /*actionRow {
-                            textInput(TextInputStyle.Short, "id", translate("create.modal.fields.title"))
-                        }*/
                         actionRow {
-                            textInput(TextInputStyle.Short, "color", translate("create.modal.fields.color")) {
+                            textInput(TextInputStyle.Short, "label", translate("create.modal.fields.label.label")) {
+                                allowedLength = 0..80
+                                placeholder = translate("create.modal.fields.label.placeholder")
+                                value = translate("create.modal.fields.label.placeholder")
+                                required = true
+                            }
+                        }
+                        actionRow {
+                            textInput(TextInputStyle.Short, "title", translate("create.modal.fields.title.label")) {
+                                allowedLength = 0..256
+                                placeholder = translate("create.modal.fields.title.placeholder")
                                 required = false
                             }
                         }
                         actionRow {
-                            textInput(TextInputStyle.Short, "image_url", translate("create.modal.fields.url")) {
+                            textInput(TextInputStyle.Short, "color", translate("create.modal.fields.color.label")) {
+                                allowedLength = 0..6
+                                placeholder = translate("create.modal.fields.color.placeholder")
+                                required = false
+                            }
+                        }
+                        actionRow {
+                            textInput(TextInputStyle.Short, "image_url", translate("create.modal.fields.url.label")) {
+                                allowedLength = 0..1024
+                                placeholder = translate("create.modal.fields.url.placeholder")
                                 required = false
                             }
                         }
@@ -101,8 +169,10 @@ class SelfRoleExtension : Extension() {
                             textInput(
                                 TextInputStyle.Paragraph,
                                 "description",
-                                translate("create.modal.fields.description")
+                                translate("create.modal.fields.description.label")
                             ) {
+                                allowedLength = 0..4000
+                                placeholder = translate("create.modal.fields.description.placeholder")
                                 required = false
                             }
                         }
@@ -141,88 +211,33 @@ class SelfRoleExtension : Extension() {
 
                                 action {
                                     respond {
-                                        val id = arguments.id
-                                        val clr = event.interaction.textInputs["color"]!!.value?.parseHex()
-                                        val desc = event.interaction.textInputs["description"]!!.value?.ifBlank { null }
+                                        val color = event.interaction.textInputs["color"]!!.value?.parseHex()
+                                        val title = event.interaction.textInputs["title"]!!.value?.ifBlank { null }
+                                        val description =
+                                            event.interaction.textInputs["description"]!!.value?.ifBlank { null }
                                         val imageUrl =
                                             event.interaction.textInputs["image_url"]!!.value?.ifBlank { null }
                                         val roleIds = selected.map { it.toLong() }.toSet()
 
-                                        val message = arguments.channel.asChannelOf<TextChannel>().createMessage {
-                                            embed {
-                                                title = id
-                                                if (desc != null) description = desc
-                                                if (imageUrl != null) image = imageUrl
-                                                if (clr != null) color = Color(clr)
-                                            }
-
-                                            components {
-                                                publicButton {
-                                                    label = translate("create.select.menu.label")
-
-                                                    action {
-                                                        respondEphemeral {
-                                                            components {
-                                                                ephemeralSelectMenu {
-                                                                    val member = member!!.asMember()
-                                                                    val r =
-                                                                        roleIds.mapNotNull { role -> guild.roles.firstOrNull { role == it.id.value.toLong() } }
-                                                                    minimumChoices = 0
-                                                                    maximumChoices = r.size
-                                                                    for (role in r)
-                                                                        option(role.name, role.id.toString()) {
-                                                                            default =
-                                                                                member.roleIds.contains(role.id) == true
-                                                                            if (role.unicodeEmoji != null)
-                                                                                emoji = DiscordPartialEmoji(
-                                                                                    null,
-                                                                                    role.unicodeEmoji
-                                                                                )
-                                                                        }
-
-                                                                    action {
-                                                                        respond {
-                                                                            member.edit {
-                                                                                this.roles =
-                                                                                    member.roleIds.toMutableSet()
-                                                                                this.roles!!.addAll(selected.map {
-                                                                                    Snowflake(
-                                                                                        it
-                                                                                    )
-                                                                                })
-                                                                                this.roles!!.removeAll(options.map {
-                                                                                    Snowflake(
-                                                                                        it.value
-                                                                                    )
-                                                                                }.filter { role ->
-                                                                                    !selected.map {
-                                                                                        Snowflake(
-                                                                                            it
-                                                                                        )
-                                                                                    }.contains(role)
-                                                                                }.toSet())
-                                                                            }
-                                                                            content = selected.size.toString()
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                        val label = event.interaction.textInputs["label"]!!.value?.ifBlank { null }
+                                        if (label == null) {
+                                            content = translate("create.select.response.failed")
+                                            return@respond
                                         }
+
                                         Api.postSelfRoles(
                                             guild.id,
                                             SelfRole.Post(
-                                                id,
-                                                message.id.value.toLong(),
                                                 roleIds,
-                                                desc,
+                                                arguments.channel.id.value.toLong(),
+                                                label,
+                                                title,
+                                                description,
                                                 imageUrl,
-                                                clr
+                                                color
                                             )
                                         )
+
                                         content = translate("create.select.response.created")
                                     }
                                 }
