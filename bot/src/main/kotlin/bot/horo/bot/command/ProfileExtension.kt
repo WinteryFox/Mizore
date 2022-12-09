@@ -6,13 +6,11 @@ import com.kotlindiscord.kord.extensions.extensions.Extension
 import com.kotlindiscord.kord.extensions.extensions.publicSlashCommand
 import com.kotlindiscord.kord.extensions.types.respond
 import com.kotlindiscord.kord.extensions.utils.createdAt
-import com.kotlindiscord.kord.extensions.utils.profileLink
 import dev.kord.common.Color
+import dev.kord.common.toMessageFormat
 import dev.kord.rest.builder.message.create.embed
-
-import java.text.DateFormat
-import java.text.SimpleDateFormat
-import java.time.format.DateTimeFormatter
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 
 class ProfileExtension : Extension() {
     override val name: String = "profile"
@@ -38,13 +36,12 @@ class ProfileExtension : Extension() {
                 val guild = this@action.guild!!
                 val user = guild.getMember(id)
 
+                val joinedAt = user.joinedAt
+                val createdAt = user.createdAt
+                val now = Clock.System.now()
+                val joinedDate = joinedAt.toMessageFormat()
+                val createdDate = createdAt.toMessageFormat()
 
-                fun formatDate(rawDate: String): String {
-                    val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                    val parsedDate = inputFormat.parse(rawDate)
-                    val dateFormat = DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT)
-                    return dateFormat.format(parsedDate)
-                }
                 respond {
                     embed {
                         author {
@@ -52,30 +49,29 @@ class ProfileExtension : Extension() {
                             name = user.tag
                         }
                         field {
-                            name = "Display name"
+                            name = "Nickname"
                             value = user.mention
                         }
                         field {
-                            name = "Created at"
-                            value = formatDate(user.createdAt.toString())
-                        }
-                        field {
                             name = "Joined at"
-                            value = formatDate(user.joinedAt.toString())
+                            value = joinedDate
                         }
                         field {
-                            name = "Roles: " + user.roleIds.size.toString()
+                            name = "Roles (" + user.roleIds.size.toString() + ")"
                             value = user.roleIds.joinToString { "<@&$it>" }
                         }
                         field {
-                            name = "Profile link"
-                            value = user.profileLink
+                            name = "Created at"
+                            value = createdDate
+                        }
+                        field {
+                            name = "Avatar source"
+                            value = user.avatar?.url.toString()
                         }
                         footer {
-                            text = "ID:" + user.id.toString() + " ┇ " + java.time.LocalDateTime.now().format(
-                                DateTimeFormatter.ofPattern("E d MMM uuuu")) + " at " +  java.time.LocalDateTime.now().format(
-                                DateTimeFormatter.ofPattern("HH:mm"))
+                            text = "ID:" + user.id.toString()
                         }
+                        timestamp = now
                         color = Color(202, 117, 201)
                         thumbnail {
                             url = user.avatar?.url.toString()
