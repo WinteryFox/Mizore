@@ -1,5 +1,6 @@
 @file:Suppress("PropertyName")
 
+val kord_version: String by project
 val ktor_version: String by project
 val exposed_version: String by project
 val logback_version: String by project
@@ -19,6 +20,7 @@ description = "The API for Horo"
 
 repositories {
     mavenCentral()
+    maven("https://oss.sonatype.org/content/repositories/snapshots")
 }
 
 dependencies {
@@ -28,12 +30,16 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
 
+    implementation("dev.kord:kord-core:$kord_version")
+    implementation("dev.kord:kord-rest:$kord_version")
+
     implementation("io.ktor:ktor-server-content-negotiation-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-auto-head-response-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-netty-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-locations-jvm:$ktor_version")
+    implementation("io.ktor:ktor-server-status-pages-jvm:$ktor_version")
 
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")

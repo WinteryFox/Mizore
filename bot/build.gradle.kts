@@ -27,6 +27,8 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+
     implementation("com.kotlindiscord.kord.extensions:kord-extensions:$kordex_version")
     implementation("com.kotlindiscord.kord.extensions:unsafe:$kordex_version")
     implementation("com.rabbitmq:amqp-client:5.16.0")

@@ -8,12 +8,9 @@ sealed class OptionalProperty<out T> {
 
     data class Present<T>(val value: T) : OptionalProperty<T>()
 
-    fun isPresent(): Boolean = this is Present
-
-    fun isMissing(): Boolean = this is Missing
-
-    fun value(): T? = when (this) {
-        is Present -> value
-        is Missing -> null
-    }
+    val valueOrNull: T?
+        get() = when (this) {
+            is Present -> value
+            is Missing -> null
+        }
 }

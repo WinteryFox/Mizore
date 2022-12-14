@@ -13,11 +13,32 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.json.Json
 
 object Api {
+    data class Response<T>(
+        val body: T?,
+        val status: HttpStatusCode
+    )
+
+    suspend inline fun <reified T> HttpResponse.response(): Response<T?> {
+        val body = try {
+            body<T>()
+        } catch (_: NoTransformationFoundException) {
+            null
+        }
+
+        return Response(
+            body,
+            status
+        )
+    }
+
     private val http = HttpClient(CIO) {
         install(ContentNegotiation) {
-            json()
+            json(Json {
+                encodeDefaults = false
+            })
         }
         install(DefaultRequest) {
             url("http://localhost:8080/api/")
@@ -28,22 +49,24 @@ object Api {
         }
     }
 
-    suspend fun getGuild(id: Snowflake): Guild.Response = http.get("guilds/$id").call.response.body()
+    suspend fun getGuild(id: Snowflake) =
+        http.get("guilds/$id").response<Guild.Response>()
 
-    suspend fun getSelfRoles(guildId: Snowflake, id: String): HttpResponse = http.get("guilds/$guildId/selfroles/$id").call.response.body()
+    suspend fun getSelfRoles(guildId: Snowflake, id: String) =
+        http.get("guilds/$guildId/selfroles/$id").response<SelfRole.Response>()
 
-    suspend fun getSelfRolesByGuild(id: Snowflake): List<SelfRole.Response> =
-        http.get("guilds/$id/selfroles").call.response.body()
+    suspend fun getSelfRolesByGuild(id: Snowflake) =
+        http.get("guilds/$id/selfroles").response<List<SelfRole.Response>>()
 
-    suspend fun postSelfRoles(id: Snowflake, body: SelfRole.Post): HttpResponse =
+    suspend fun postSelfRoles(id: Snowflake, body: SelfRole.Post) =
         http.post("guilds/$id/selfroles") {
             contentType(ContentType.Application.Json)
             setBody(body)
-        }
+        }.response<SelfRole.Response>()
 
-    suspend fun patchSelfRoles(id: Snowflake, body: SelfRole.Post): HttpResponse =
+    suspend fun patchSelfRoles(id: Snowflake, body: SelfRole.Patch) =
         http.patch("guilds/$id/selfroles") {
             contentType(ContentType.Application.Json)
             setBody(body)
-        }
+        }.response<SelfRole.Response>()
 }
