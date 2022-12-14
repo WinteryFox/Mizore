@@ -44,19 +44,31 @@ class ProfileExtension : Extension() {
                     val user = guild.getMember(id)
 
                     val imageUrl = user.avatar?.url.toString() + "?size=512"
+                    val defaultImageUrl = user.defaultAvatar.url + "?size=512"
 
                     respond {
                         embed {
-                            author {
-                                icon = user.avatar?.url.toString()
-                                name = user.tag
+                            if (user.avatar == null) {
+                                author {
+                                    icon = user.defaultAvatar.url
+                                    name = user.tag
+                                }
+                                image = defaultImageUrl
+                            } else {
+                                author {
+                                    icon = user.avatar!!.url
+                                    name = user.tag
+                                }
+                                image = imageUrl
                             }
-                            image = imageUrl
+
                             color = theme
                         }
-                        actionRow {
-                            linkButton(imageUrl) {
-                                label = translate("avatar.source.profile.sub.button")
+                        if (user.avatar != null) {
+                            actionRow {
+                                linkButton(imageUrl) {
+                                    label = translate("avatar.source.profile.sub.button")
+                                }
                             }
                         }
                     }
@@ -79,9 +91,22 @@ class ProfileExtension : Extension() {
 
                     respond {
                         embed {
-                            author {
-                                icon = user.avatar?.url.toString()
-                                name = user.tag
+                            if (user.avatar == null) {
+                                thumbnail {
+                                    url = user.defaultAvatar.url
+                                }
+                                author {
+                                    icon = user.defaultAvatar.url
+                                    name = user.tag
+                                }
+                            } else {
+                                thumbnail {
+                                    url = user.avatar!!.url
+                                }
+                                author {
+                                    icon = user.avatar!!.url
+                                    name = user.tag
+                                }
                             }
                             field {
                                 name = translate("view.profile.sub.field.nickname")
@@ -111,9 +136,6 @@ class ProfileExtension : Extension() {
                             }
                             timestamp = Clock.System.now()
                             color = theme
-                            thumbnail {
-                                url = user.avatar?.url.toString()
-                            }
                         }
                     }
                 }
