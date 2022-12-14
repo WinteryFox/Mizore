@@ -19,21 +19,21 @@ class ProfileExtension : Extension() {
 
     private class ProfileArguments : Arguments() {
         val target by user {
-            name = "tag"
-            description = "tag a user"
+            name = "tag.arguments.user.name"
+            description = "tag.arguments.user.description"
         }
     }
 
     override suspend fun setup() {
         publicSlashCommand { //pass an instance of the ProfileArguments class as an argument
-            name = "profile"
-            description = "profile commands"
+            name = "name"
+            description = "description"
             val theme = Color(202, 117, 201)
 
             publicSubCommand(::ProfileArguments)
             {
-                name = "avatar"
-                description = "Display a users avatar"
+                name = "avatar.profile.sub.name"
+                description = "avatar.profile.sub.description"
 
                 action {
                     //access the ID from the parsed arguments
@@ -47,12 +47,16 @@ class ProfileExtension : Extension() {
 
                     respond {
                         embed {
+                            author {
+                                icon = user.avatar?.url.toString()
+                                name = user.tag
+                            }
                             image = imageUrl
                             color = theme
                         }
                         actionRow {
                             linkButton(imageUrl) {
-                                label = "Open source"
+                                label = translate("avatar.source.profile.sub.button")
                             }
                         }
                     }
@@ -60,8 +64,8 @@ class ProfileExtension : Extension() {
             }
 
             publicSubCommand(::ProfileArguments) {
-                name = "view"
-                description = "Display a users profile"
+                name = "view.profile.sub.name"
+                description = "view.profile.sub.description"
 
                 action {
                     //access the ID from the parsed arguments
@@ -71,6 +75,8 @@ class ProfileExtension : Extension() {
                     val guild = this@action.guild!!
                     val user = guild.getMember(id)
 
+                    val rolesLabel = translate("view.profile.sub.field.roles")
+
                     respond {
                         embed {
                             author {
@@ -78,19 +84,26 @@ class ProfileExtension : Extension() {
                                 name = user.tag
                             }
                             field {
-                                name = "Nickname"
+                                name = translate("view.profile.sub.field.nickname")
                                 value = user.mention
                             }
                             field {
-                                name = "Joined at"
+                                name = translate("view.profile.sub.field.joinedAt")
                                 value = user.joinedAt.toMessageFormat()
                             }
-                            field {
-                                name = "Roles (" + user.roleIds.size.toString() + ")"
-                                value = user.roleIds.joinToString { "<@&$it>" }
+                            if (user.roleIds.isNotEmpty()) {
+                                field {
+                                    name = "$rolesLabel (${user.roleIds.size})"
+                                    value = user.roleIds.joinToString(" ") { "<@&$it>" }
+                                }
+                            } else {
+                                field {
+                                    name = "$rolesLabel (0)"
+                                    value = "This user has no roles"
+                                }
                             }
                             field {
-                                name = "Created at"
+                                name = translate("view.profile.sub.field.createdAt")
                                 value = user.createdAt.toMessageFormat()
                             }
                             footer {
