@@ -7,6 +7,7 @@ import com.kotlindiscord.kord.extensions.extensions.Extension
 import com.kotlindiscord.kord.extensions.extensions.publicSlashCommand
 import com.kotlindiscord.kord.extensions.types.respond
 import com.kotlindiscord.kord.extensions.utils.createdAt
+import com.kotlindiscord.kord.extensions.utils.getTopRole
 import dev.kord.common.Color
 import dev.kord.common.toMessageFormat
 import dev.kord.rest.builder.message.create.actionRow
@@ -63,7 +64,6 @@ class ProfileExtension : Extension() {
                 action {
                     val id = arguments.target.id
                     val user = this@action.guild?.getMember(id) ?: return@action
-                    val rolesLabel = translate("view.profile.sub.field.roles")
                     val avatar = user.avatar?.url ?: user.defaultAvatar.url
 
                     respond {
@@ -85,13 +85,16 @@ class ProfileExtension : Extension() {
                             }
                             if (user.roleIds.isNotEmpty()) {
                                 field {
-                                    name = "$rolesLabel (${user.roleIds.size})" //TODO: how to use map to change
-                                    value = user.roleIds.joinToString(" ") { "<@&$it>" }
+                                    name = "Highest Role"
+                                    value = "<@&${user.getTopRole()?.id}>"
                                 }
-                            } else {
-                                field {
-                                    name = "$rolesLabel (${translate("view.profile.sub.field.null")})" //TODO: Fix and how to use map to change
-                                    value = translate("view.profile.sub.field.null.description")
+                            }
+                            field {
+                                name = translate("view.profile.sub.rolesWithCount", replacements = mapOf("count" to user.roleIds.size))
+                                value = if (user.roleIds.isNotEmpty()) {
+                                    user.roleIds.joinToString(" ") { "<@&$it>" }
+                                } else {
+                                    translate("view.profile.sub.field.null.description")
                                 }
                             }
                             field {
