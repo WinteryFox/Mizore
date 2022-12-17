@@ -21,6 +21,7 @@ fun main(): Unit = runBlocking {
         extensions {
             help { enableBundledExtension = false }
             add(::HelpExtension)
+            add(::ProfileExtension)
             add(::SelfRoleExtension)
         }
 
