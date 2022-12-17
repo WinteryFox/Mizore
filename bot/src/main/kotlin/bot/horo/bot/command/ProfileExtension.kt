@@ -11,62 +11,41 @@ import dev.kord.common.Color
 import dev.kord.common.toMessageFormat
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
-import kotlinx.datetime.Clock
 
 class ProfileExtension : Extension() {
     override val name: String = "horo.profile"
     override val bundle: String = "horo.profile"
 
-    private class ProfileArguments : Arguments() {
-        val target by user {
-            name = "tag.arguments.user.name"
-            description = "tag.arguments.user.description"
-        }
-    }
-
     override suspend fun setup() {
-        publicSlashCommand { //pass an instance of the ProfileArguments class as an argument
+        publicSlashCommand {
             name = "name"
             description = "description"
-            val theme = Color(202, 117, 201)
+            allowInDms = false
+            val theme = Color(202, 117, 201) //this will be in constants file soon @WinteryFox
 
-            publicSubCommand(::ProfileArguments)
-            {
+            publicSubCommand(::ProfileArguments) {
+                //command /Profile avatar
                 name = "avatar.profile.sub.name"
                 description = "avatar.profile.sub.description"
+                allowInDms = false
 
                 action {
-                    //access the ID from the parsed arguments
                     val id = arguments.target.id
-
-                    //use the user ID to get the user from the guild
-                    val guild = this@action.guild!!
-                    val user = guild.getMember(id)
-
-                    val imageUrl = user.avatar?.url.toString() + "?size=512"
-                    val defaultImageUrl = user.defaultAvatar.url + "?size=512"
+                    val user = this@action.guild?.getMember(id) ?: return@action
+                    val avatar = user.avatar?.url ?: user.defaultAvatar.url
 
                     respond {
                         embed {
-                            if (user.avatar == null) {
-                                author {
-                                    icon = user.defaultAvatar.url
-                                    name = user.tag
-                                }
-                                image = defaultImageUrl
-                            } else {
-                                author {
-                                    icon = user.avatar!!.url
-                                    name = user.tag
-                                }
-                                image = imageUrl
+                            author {
+                                icon = avatar
+                                name = user.tag
                             }
-
+                            image = "$avatar?size=512"
                             color = theme
                         }
                         if (user.avatar != null) {
                             actionRow {
-                                linkButton(imageUrl) {
+                                linkButton("$avatar?size=512") {
                                     label = translate("avatar.source.profile.sub.button")
                                 }
                             }
@@ -76,37 +55,25 @@ class ProfileExtension : Extension() {
             }
 
             publicSubCommand(::ProfileArguments) {
+                //command /Profile view
                 name = "view.profile.sub.name"
                 description = "view.profile.sub.description"
+                allowInDms = false
 
                 action {
-                    //access the ID from the parsed arguments
                     val id = arguments.target.id
-
-                    //use the user ID to get the user from the guild
-                    val guild = this@action.guild!!
-                    val user = guild.getMember(id)
-
+                    val user = this@action.guild?.getMember(id) ?: return@action
                     val rolesLabel = translate("view.profile.sub.field.roles")
+                    val avatar = user.avatar?.url ?: user.defaultAvatar.url
 
                     respond {
                         embed {
-                            if (user.avatar == null) {
-                                thumbnail {
-                                    url = user.defaultAvatar.url
-                                }
-                                author {
-                                    icon = user.defaultAvatar.url
-                                    name = user.tag
-                                }
-                            } else {
-                                thumbnail {
-                                    url = user.avatar!!.url
-                                }
-                                author {
-                                    icon = user.avatar!!.url
-                                    name = user.tag
-                                }
+                            thumbnail {
+                                url = avatar
+                            }
+                            author {
+                                icon = avatar
+                                name = user.tag
                             }
                             field {
                                 name = translate("view.profile.sub.field.nickname")
@@ -118,13 +85,13 @@ class ProfileExtension : Extension() {
                             }
                             if (user.roleIds.isNotEmpty()) {
                                 field {
-                                    name = "$rolesLabel (${user.roleIds.size})"
+                                    name = "$rolesLabel (${user.roleIds.size})" //TODO: how to use map to change
                                     value = user.roleIds.joinToString(" ") { "<@&$it>" }
                                 }
                             } else {
                                 field {
-                                    name = "$rolesLabel (0)"
-                                    value = "This user has no roles"
+                                    name = "$rolesLabel (${translate("view.profile.sub.field.null")})" //TODO: Fix and how to use map to change
+                                    value = translate("view.profile.sub.field.null.description")
                                 }
                             }
                             field {
@@ -132,14 +99,20 @@ class ProfileExtension : Extension() {
                                 value = user.createdAt.toMessageFormat()
                             }
                             footer {
-                                text = "ID:" + user.id.toString()
+                                text = "${translate("view.profile.sub.field.id")}: ${user.id}"
                             }
-                            timestamp = Clock.System.now()
                             color = theme
                         }
                     }
                 }
             }
+        }
+    }
+
+    inner class ProfileArguments : Arguments() {
+        val target by user {
+            name = "tag.arguments.user.name"
+            description = "tag.arguments.user.description"
         }
     }
 }
