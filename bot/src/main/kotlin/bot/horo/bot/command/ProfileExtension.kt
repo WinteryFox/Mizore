@@ -21,13 +21,16 @@ class ProfileExtension : Extension() {
         publicSlashCommand {
             name = "name"
             description = "description"
+
             allowInDms = false
+
             val theme = Color(202, 117, 201) //this will be in constants file soon @WinteryFox
 
             publicSubCommand(::ProfileArguments) {
                 //command /Profile avatar
                 name = "avatar.profile.sub.name"
                 description = "avatar.profile.sub.description"
+
                 allowInDms = false
 
                 action {
@@ -37,13 +40,16 @@ class ProfileExtension : Extension() {
 
                     respond {
                         embed {
+                            color = theme
+
                             author {
                                 icon = avatar
                                 name = user.tag
                             }
+
                             image = "$avatar?size=512"
-                            color = theme
                         }
+
                         if (user.avatar != null) {
                             actionRow {
                                 linkButton("$avatar?size=512") {
@@ -59,52 +65,63 @@ class ProfileExtension : Extension() {
                 //command /Profile view
                 name = "view.profile.sub.name"
                 description = "view.profile.sub.description"
+
                 allowInDms = false
 
                 action {
                     val id = arguments.target.id
                     val user = this@action.guild?.getMember(id) ?: return@action
+
                     val avatar = user.avatar?.url ?: user.defaultAvatar.url
 
                     respond {
                         embed {
+                            color = theme
+
                             thumbnail {
                                 url = avatar
                             }
+
                             author {
                                 icon = avatar
                                 name = user.tag
                             }
+
                             field {
                                 name = translate("view.profile.sub.field.nickname")
                                 value = user.mention
                             }
+
                             field {
                                 name = translate("view.profile.sub.field.joinedAt")
                                 value = user.joinedAt.toMessageFormat()
                             }
+
                             if (user.roleIds.isNotEmpty()) {
                                 field {
-                                    name = "Highest Role"
+                                    name = translate("view.profile.sub.field.highestRole")
                                     value = "<@&${user.getTopRole()?.id}>"
                                 }
                             }
+
                             field {
-                                name = translate("view.profile.sub.rolesWithCount", replacements = mapOf("count" to user.roleIds.size))
+                                name = translate("view.profile.sub.field.rolesWithCount", replacements = mapOf("count" to user.roleIds.size))
+
                                 value = if (user.roleIds.isNotEmpty()) {
                                     user.roleIds.joinToString(" ") { "<@&$it>" }
                                 } else {
                                     translate("view.profile.sub.field.null.description")
                                 }
                             }
+
                             field {
                                 name = translate("view.profile.sub.field.createdAt")
                                 value = user.createdAt.toMessageFormat()
                             }
+
                             footer {
                                 text = "${translate("view.profile.sub.field.id")}: ${user.id}"
                             }
-                            color = theme
                         }
                     }
                 }
