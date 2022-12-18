@@ -14,7 +14,7 @@ plugins {
     sources
 }
 
-description = "The gateway for Horo"
+description = "The gateway for Mizore"
 
 repositories {
     mavenCentral()
@@ -48,27 +48,28 @@ tasks {
     withType<KotlinCompile> {
         kotlinOptions {
             jvmTarget = "18"
+            kotlinOptions.freeCompilerArgs = listOf("-Xcontext-receivers")
         }
     }
 }
 
 jib {
     to {
-        image = "winteryfox/horo-bot"
+        image = "winteryfox/mizore-bot"
         tags = setOf("latest", version.toString())
     }
     from.image = "amazoncorretto:19-alpine3.16"
-    container.mainClass = "bot.horo.bot.HoroKt"
+    container.mainClass = "bot.mizore.bot.MizoreKt"
 }
 
 application {
-    mainClassName = "bot.horo.bot.HoroKt"
+    mainClassName = "bot.mizore.bot.MizoreKt"
 }
 
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "bot.horo.bot.HoroKt"
+            "Main-Class" to "bot.mizore.bot.MizoreKt"
         )
     }
 }

@@ -16,7 +16,7 @@ plugins {
     sources
 }
 
-description = "The API for Horo"
+description = "The API for Mizore"
 
 repositories {
     mavenCentral()
@@ -53,21 +53,21 @@ dependencies {
 
 jib {
     to {
-        image = "winteryfox/horo-settings:$version"
+        image = "winteryfox/mizore-api:$version"
         tags = setOf("latest", version.toString())
     }
     from.image = "amazoncorretto:19-alpine3.16"
-    container.mainClass = "bot.horo.api.ApiKt"
+    container.mainClass = "bot.mizore.api.ApiKt"
 }
 
 application {
-    mainClassName = "bot.horo.api.ApiKt"
+    mainClassName = "bot.mizore.api.ApiKt"
 }
 
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "bot.horo.api.ApiKt"
+            "Main-Class" to "bot.mizore.api.ApiKt"
         )
     }
 }

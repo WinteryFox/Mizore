@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   gateway:
-    image: winteryfox/horo-gateway
+    image: winteryfox/mizore-gateway
     depends_on: [gateway-rabbitmq]
   gateway-rabbitmq:
     image: rabbitmq:3.9.25-alpine
@@ -9,5 +9,5 @@ services:
       - "5672:5672"
       - "15672:8080"
   bot:
-    image: winteryfox/horo-bot
+    image: winteryfox/mizore-bot
     depends_on: [gateway]

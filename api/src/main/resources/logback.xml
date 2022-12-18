@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true">
     <timestamp key="bySecond" datePattern="yyyyMMdd'T'HHmmss"/>
-    <logger name="bot.horo" level="TRACE"/>
+    <logger name="bot.mizore" level="TRACE"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender" withJansi="true">
         <encoder>
@@ -22,7 +22,7 @@
         <queueSize>512</queueSize>
         <appender-ref ref="FILE"/>
     </appender>
-E
+
     <root level="TRACE">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="ASYNC"/>

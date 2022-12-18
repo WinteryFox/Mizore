@@ -1,4 +1,4 @@
-FROM postgres:15.1 AS horo-api-postgres
+FROM postgres:15.1 AS mizore-api-postgres
 
 ENV POSTGRES_PASSWORD 12345
 

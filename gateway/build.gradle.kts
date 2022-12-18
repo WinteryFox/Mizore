@@ -7,7 +7,7 @@ plugins {
     id("com.github.johnrengelman.shadow")
 }
 
-group = "bot.horo"
+group = "bot.mizore"
 version = "1.0.0"
 description = "A multi-functional Discord bot with a focus on tamagotchi"
 java.sourceCompatibility = JavaVersion.VERSION_18
@@ -42,21 +42,21 @@ tasks {
 
 jib {
     to {
-        image = "winteryfox/horo-gateway:$version"
+        image = "winteryfox/mizore-gateway:$version"
         tags = setOf("latest", version.toString())
     }
     from.image = "amazoncorretto:19-alpine3.16"
-    container.mainClass = "bot.horo.MainKt"
+    container.mainClass = "bot.mizore.MainKt"
 }
 
 application {
-    mainClassName = "bot.horo.gateway.GatewayKt"
+    mainClassName = "bot.mizore.gateway.GatewayKt"
 }
 
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "bot.horo.gateway.GatewayKt"
+            "Main-Class" to "bot.mizore.gateway.GatewayKt"
         )
     }
 }
