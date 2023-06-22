@@ -18,8 +18,6 @@ description = "The gateway for Mizore"
 
 repositories {
     mavenCentral()
-    maven("https://oss.sonatype.org/content/repositories/snapshots")
-    maven("https://maven.kotlindiscord.com/repository/maven-public")
 }
 
 dependencies {
@@ -59,17 +57,12 @@ jib {
         tags = setOf("latest", version.toString())
     }
     from.image = "amazoncorretto:19-alpine3.16"
-    container.mainClass = "bot.mizore.bot.MizoreKt"
-}
-
-application {
-    mainClassName = "bot.mizore.bot.MizoreKt"
 }
 
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "bot.mizore.bot.MizoreKt"
+            "Main-Class" to "$group.$name.MainKt"
         )
     }
 }

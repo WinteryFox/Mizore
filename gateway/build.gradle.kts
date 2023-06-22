@@ -7,12 +7,6 @@ plugins {
     id("com.github.johnrengelman.shadow")
 }
 
-group = "bot.mizore"
-version = "1.0.0"
-description = "A multi-functional Discord bot with a focus on tamagotchi"
-java.sourceCompatibility = JavaVersion.VERSION_18
-java.targetCompatibility = JavaVersion.VERSION_18
-
 repositories {
     mavenCentral()
     maven("https://oss.sonatype.org/content/repositories/snapshots")
@@ -46,17 +40,12 @@ jib {
         tags = setOf("latest", version.toString())
     }
     from.image = "amazoncorretto:19-alpine3.16"
-    container.mainClass = "bot.mizore.MainKt"
-}
-
-application {
-    mainClassName = "bot.mizore.gateway.GatewayKt"
 }
 
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "bot.mizore.gateway.GatewayKt"
+            "Main-Class" to "$group.$name.MainKt"
         )
     }
 }
